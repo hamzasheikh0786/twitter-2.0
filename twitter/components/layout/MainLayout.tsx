@@ -21,7 +21,6 @@ const Mainlayout = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // If user is not logged in → show children (like login/signup pages)
   if (!user) {
     return <>{children}</>;
   }

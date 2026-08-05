@@ -15,7 +15,7 @@ const suggestions = [
     id: '1',
     username: 'narendramodi',
     displayName: 'Narendra Modi',
-    avatar: 'https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg?auto=compress&cs=tinysrgb&w=400',
+    avatar: '',
     verified: true
   },
   {
@@ -29,7 +29,7 @@ const suggestions = [
     id: '3',
     username: 'rashtrapatibhvn',
     displayName: 'President of India',
-    avatar: 'https://images.pexels.com/photos/1080213/pexels-photo-1080213.jpeg?auto=compress&cs=tinysrgb&w=400',
+    avatar: '',
     verified: true
   }
 ];
@@ -37,7 +37,7 @@ const suggestions = [
 export default function RightSidebar() {
   return (
     <div className="w-80 p-4 space-y-4">
-      {/* Search */}
+
       <div className="relative">
         <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
         <Input
@@ -46,7 +46,7 @@ export default function RightSidebar() {
         />
       </div>
 
-      {/* Subscribe to Premium */}
+      
       <Card className="bg-gray-900 border-gray-800">
         <CardContent className="p-4">
           <h3 className="text-white text-xl font-bold mb-2">Subscribe to Premium</h3>
@@ -59,9 +59,6 @@ export default function RightSidebar() {
         </CardContent>
       </Card>
 
-     
-
-      {/* Who to follow */}
       <Card className="bg-gray-900 border-gray-800">
         <CardContent className="p-4">
           <h3 className="text-white text-xl font-bold mb-4">You might like</h3>
@@ -102,7 +99,6 @@ export default function RightSidebar() {
         </CardContent>
       </Card>
 
-      {/* Footer */}
       <div className="p-4 text-xs text-gray-500 space-y-2">
         <div className="flex flex-wrap gap-x-3 gap-y-1">
           <a href="#" className="hover:underline">Terms of Service</a>

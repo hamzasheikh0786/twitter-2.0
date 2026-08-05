@@ -92,8 +92,8 @@ export default function LandingPage() {
             <Button
               className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-full text-base h-12"
               onClick={() => openAuthModal("signup")}
-            >
-              Create account
+            >              
+            
             </Button>
             <p className="text-xs text-gray-400 leading-relaxed">
               By signing up, you agree to the{" "}
