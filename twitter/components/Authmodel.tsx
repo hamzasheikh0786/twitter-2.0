@@ -71,7 +71,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        //if (!validateForm() || isLoading) return;
+        if (!validateForm() || isLoading) return;
 
     try {
         if (mode === 'login') {

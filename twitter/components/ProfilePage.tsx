@@ -121,12 +121,12 @@ export default function ProfilePage() {
   useEffect(() => {
     fetchTweets();
   }, []);
-  // Filter tweets by current user
+  
   const userTweets = Array.isArray(tweets) ? tweets.filter((tweet: any) => tweet.author._id === user._id) : [];
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
+      
       <div className="sticky top-0 bg-black/90 backdrop-blur-md border-b border-gray-800 z-10">
         <div className="flex items-center px-4 py-3 space-x-8">
           <Button
@@ -143,7 +143,6 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Cover Photo */}
       <div className="relative">
         <div className="h-48 bg-gradient-to-r from-blue-600 to-purple-600 relative">
           <Button
@@ -155,7 +154,6 @@ export default function ProfilePage() {
           </Button>
         </div>
 
-        {/* Profile Picture */}
         <div className="absolute -bottom-16 left-4">
           <div className="relative">
             <Avatar className="h-32 w-32 border-4 border-black">
@@ -174,7 +172,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Edit Profile Button */}
         <div className="flex justify-end p-4">
           <Button
             variant="outline"
@@ -186,7 +183,6 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Profile Info */}
       <div className="px-4 pb-4 mt-12">
         <div className="flex items-start justify-between mb-3">
           <div>
@@ -233,7 +229,6 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-5 bg-transparent border-b border-gray-800 rounded-none h-auto">
           <TabsTrigger

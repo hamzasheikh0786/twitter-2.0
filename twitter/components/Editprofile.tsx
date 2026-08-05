@@ -148,7 +148,6 @@ const Editprofile = ({ isopen, onclose }: any) => {
                 </Button>
               </div>
 
-              {/* Profile Picture */}
               <div className="absolute -bottom-16 left-4">
                 <div className="relative">
                   <Avatar className="h-32 w-32 border-4 border-black">
@@ -179,9 +178,8 @@ const Editprofile = ({ isopen, onclose }: any) => {
                 </div>
               </div>
             </div>
-
             <div className="p-4 mt-16 space-y-6">
-              {/* Display Name */}
+
               <div className="space-y-2">
                 <Label htmlFor="displayName" className="text-white">
                   Name
@@ -208,7 +206,6 @@ const Editprofile = ({ isopen, onclose }: any) => {
                 </div>
               </div>
 
-              {/* Bio */}
               <div className="space-y-2">
                 <Label htmlFor="bio" className="text-white">
                   Bio
@@ -230,7 +227,6 @@ const Editprofile = ({ isopen, onclose }: any) => {
                 </div>
               </div>
 
-              {/* Location */}
               <div className="space-y-2">
                 <Label htmlFor="location" className="text-white">
                   Location
@@ -260,7 +256,6 @@ const Editprofile = ({ isopen, onclose }: any) => {
                 </div>
               </div>
 
-              {/* Website */}
               <div className="space-y-2">
                 <Label htmlFor="website" className="text-white">
                   Website
