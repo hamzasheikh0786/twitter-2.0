@@ -1,7 +1,7 @@
 "use client";
 
 import { Search } from 'lucide-react';
-import React from 'react';
+import React , {useState} from 'react';
 import { Input } from '../ui/input';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
@@ -35,6 +35,7 @@ const suggestions = [
 ];
 
 export default function RightSidebar() {
+  const [isSubscribed, setIsSubscribed] = useState(false);
   return (
     <div className="w-80 p-4 space-y-4">
 
@@ -53,8 +54,8 @@ export default function RightSidebar() {
           <p className="text-gray-400 text-sm mb-4">
             Subscribe to unlock new features and if eligible, receive a share of revenue.
           </p>
-          <Button className="bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-full">
-            Subscribe
+          <Button className="bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-full" onClick={() => setIsSubscribed((p)=>!p)}>
+            {isSubscribed ? "Subscribed" : "Subscribe"}
           </Button>
         </CardContent>
       </Card>

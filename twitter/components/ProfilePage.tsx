@@ -103,9 +103,10 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("posts");
   const [showEditModal, setShowEditModal] = useState(false);
 
-  if (!user) return null;
   const [tweets, setTweets] = useState<any>([]);
   const [loading, setloading] = useState(false);
+
+  if (!user) return null;
   const fetchTweets = async () => {
     try {
       setloading(true);
@@ -277,11 +278,17 @@ export default function ProfilePage() {
                 </CardContent>
               </Card>
             ) : (
-              Array.isArray(userTweets) && userTweets.map((tweet:any) => (
-                <TweetCard key={tweet._id} tweet={tweet} />
-              ))
-            )}
-          </div>
+              Array.isArray(userTweets) && 
+              userTweets.map((tweet:any) => (
+                <TweetCard key={tweet._id} 
+                tweet={tweet}
+                onTweetDeleted={(id: string) =>
+      setTweets((prev: any) => prev.filter((t: any) => t._id !== id))
+    }
+  />
+  ))
+    )}
+        </div>
         </TabsContent>
 
         <TabsContent value="replies" className="mt-0">

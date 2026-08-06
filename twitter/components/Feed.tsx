@@ -5,7 +5,7 @@ import LoadingSpinner from "./loading-spinner";
 import axiosInstance from "@//Lib/axiosInstance";
 import TweetComposer from "./TweetComposer";
 
-const TweetCard = ({ tweet }: { tweet: any }) => {
+const TweetCard = ({ tweet, onTweetDeleted }: { tweet: any; onTweetDeleted?: (id: string) => void }) => {
   return (
     <div className="bg-black border-b border-gray-800 px-4 py-4 text-white">
       <div className="flex items-start gap-3">
@@ -173,7 +173,10 @@ const Feed = () => {
             </CardContent>
           </Card>
         ) : (
-          Array.isArray(tweets) && tweets.map((tweet: any) => <TweetCard key={tweet._id} tweet={tweet} />)
+          Array.isArray(tweets) && tweets.map((tweet: any) => <TweetCard key={tweet._id} 
+          tweet={tweet} 
+          onTweetDeleted={(id: string) =>setTweets((prev: any) => prev.filter((t: any) => t._id !== id))
+          } />)
         )}
       </div>
     </div>

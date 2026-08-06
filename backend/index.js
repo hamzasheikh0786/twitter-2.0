@@ -77,7 +77,7 @@ mongoose
         try{
             const tweet = new Tweet(req.body);
             await tweet.save()
-            return res.status(201).send(tweet);
+            const populated = await tweet.populate("author"); return res.status(201).send(populated);
         } catch (error) {
             return res.status(400).send({ error: error.message });
         }
@@ -93,17 +93,78 @@ mongoose
         }
     });
 
-    app.post("/retweet/:tweetid", async (req, res) => {
-        try {
-            const { userid } = req.body;
-            const tweet = await Tweet.findById(req.params.tweetid);
-            if (!tweet.retweetedby.includes(userid)) {
-                tweet.retweetcount += 1;
-                tweet.retweetedby.push(userid);
-                await tweet.save();
+app.post("/retweet/:tweetid", async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) return res.status(400).send({ error: "userId is required" });
+
+        const tweet = await Tweet.findById(req.params.tweetid);
+        if (!tweet) {return res.status(404).send({ error: "Tweet not found" });
         }
-        res.status(200).send(tweet);}
-        catch (error) {
-            return res.status(400).send({ error: error.message });
+        if (!tweet.retweetedBy) tweet.retweetedBy = [];
+            if (typeof tweet.retweets !== "number") tweet.retweets = 0;
+
+        const alreadyRetweeted = tweet.retweetedBy.some((id) => id.toString() === userId);
+        if (alreadyRetweeted) {
+            tweet.retweetedBy = tweet.retweetedBy.filter((id) => id.toString() !== userId);
+            tweet.retweets = Math.max(0, tweet.retweets - 1);
+        } else {
+            tweet.retweetedBy.push(userId);
+            tweet.retweets += 1;
         }
-    });
+        await tweet.save();
+        const populated = await tweet.populate("author");
+        return res.status(200).send(populated);
+    } catch (error) {
+        return res.status(400).send({ error: error.message });
+    }
+});
+
+app.post("/like/:tweetid", async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) return res.status(400).send({ error: "userId is required" });
+
+        const tweet = await Tweet.findById(req.params.tweetid);
+        if (!tweet) { return res.status(404).send({ error: "Tweet not found" });
+        } 
+        if (!tweet.likedBy) tweet.likedBy = [];
+            if (typeof tweet.likes !== "number") tweet.likes = 0;
+        const alreadyLiked = tweet.likedBy.some((id) => id.toString() === userId);
+        if (alreadyLiked) {
+            tweet.likedBy = tweet.likedBy.filter((id) => id.toString() !== userId);
+            tweet.likes = Math.max(0, tweet.likes - 1);
+        } else {
+            tweet.likedBy.push(userId);
+            tweet.likes += 1;
+        }
+        await tweet.save();
+        const populated = await tweet.populate("author");
+        return res.status(200).send(populated);
+    } catch (error) {
+        return res.status(400).send({ error: error.message });
+    }
+});
+
+app.delete("/tweet/:tweetid", async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) {
+            return res.status(400).send({ error: "userId is required" });
+        }
+
+        const tweet = await Tweet.findById(req.params.tweetid);
+        if (!tweet) {
+            return res.status(404).send({ error: "Tweet not found" });
+        }
+
+        if (tweet.author.toString() !== userId) {
+            return res.status(403).send({ error: "You can only delete your own posts" });
+        }
+
+        await Tweet.findByIdAndDelete(req.params.tweetid);
+        return res.status(200).send({ deletedId: req.params.tweetid });
+    } catch (error) {
+        return res.status(400).send({ error: error.message });
+    }
+});
