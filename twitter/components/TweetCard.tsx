@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import axios from "axios";
+import axiosInstance from "@/Lib/axiosInstance";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -15,12 +15,12 @@ import {
 import { useAuth } from "@/components/context/AuthContext";
 
 
-export default function TweetCard({ tweet }: any) {
+export default function TweetCard({ tweet, onTweetDeleted }: any) {
   const { user } = useAuth();
   const [tweetstate, settweetstate] = useState(tweet);
   const likeTweet = async (tweetId: string) => {
     try {
-      const res = await axios.post(`/like/${tweetId}`, {
+      const res = await axiosInstance.post(`/like/${tweetId}`, {
         userId: user?._id,
       });
       settweetstate(res.data);
@@ -31,7 +31,7 @@ export default function TweetCard({ tweet }: any) {
 
   const retweetTweet = async (tweetId: string) => {
     try {
-      const res = await axios.post(`/retweet/${tweetId}`, {
+      const res = await axiosInstance.post(`/retweet/${tweetId}`, {
         userId: user?._id,
       });
       settweetstate(res.data);
@@ -39,6 +39,17 @@ export default function TweetCard({ tweet }: any) {
       console.log(error);
     }
   };
+  const deleteTweet = async (tweetId: string) => {
+    try {
+      await axiosInstance.delete(`/tweet/${tweetId}`, {
+        data: { userId: user?._id },
+      });
+      onTweetDeleted?.(tweetId);
+    } catch (error) {
+      console.log(error);
+    }
+};
+
   const formatNumber = (num: number) => {
     if (!num) return "0";
     if (num >= 1000000) {
@@ -49,8 +60,9 @@ export default function TweetCard({ tweet }: any) {
     }
     return num.toString();
   };
-  const isLiked = tweetstate.likedBy?.includes(user?._id);
-  const isRetweet = tweetstate.retweetedBy?.includes(user?._id);
+  const isLiked = tweetstate.likedBy?.some((id: any) => id.toString() === user?._id);
+  const isRetweet = tweetstate.retweetedBy?.some((id: any) => id.toString() === user?._id);
+  const isOwner = tweetstate.author?._id === user?._id;
   return (
     <Card className="bg-black border-gray-800 border-x-0 border-t-0 rounded-none hover:bg-gray-950/50 transition-colors cursor-pointer">
       <CardContent className="p-4">
@@ -89,16 +101,27 @@ export default function TweetCard({ tweet }: any) {
                     year: "numeric",
                   })}
               </span>
-              <div className="ml-auto">
-                <Button
+              {isOwner && (
+                <div className="ml-auto">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="p-1 rounded-full hover:bg-red-900/20 text-gray-500 hover:text-red-400 mr-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteTweet(tweetstate._id);
+                    }}
+                  >
+                    Delete
+                  </Button>
+                  <Button
                   variant="ghost"
                   size="sm"
-                  className="p-1 rounded-full hover:bg-gray-900"
-                >
+                  className="p-1 rounded-full hover:bg-gray-900">
                   <MoreHorizontal className="h-5 w-5 text-gray-500" />
                 </Button>
               </div>
-            </div>
+              )}</div>
 
             <div className="text-white mb-3 leading-relaxed">
               {tweetstate.content}
@@ -141,7 +164,7 @@ export default function TweetCard({ tweet }: any) {
               >
                 <Repeat2
                   className={`h-5 w-5 ${
-                    tweet.retweeted
+                    isRetweet
                       ? "text-green-400"
                       : "group-hover:text-green-400"
                   }`}
@@ -164,7 +187,7 @@ export default function TweetCard({ tweet }: any) {
               >
                 <Heart
                   className={`h-5 w-5 ${
-                    tweetstate.liked
+                    isLiked
                       ? "text-red-500 fill-current"
                       : "group-hover:text-red-400"
                   }`}
