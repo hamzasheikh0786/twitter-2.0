@@ -99,22 +99,17 @@ app.post("/retweet/:tweetid", async (req, res) => {
         if (!userId) return res.status(400).send({ error: "userId is required" });
 
         const tweet = await Tweet.findById(req.params.tweetid);
-        if (!tweet) {return res.status(404).send({ error: "Tweet not found" });
-        }
-        if (!tweet.retweetedBy) tweet.retweetedBy = [];
-            if (typeof tweet.retweets !== "number") tweet.retweets = 0;
+        if (!tweet) return res.status(404).send({ error: "Tweet not found" });
+        const alreadyRetweeted = (tweet.retweetedBy || []).some((id) => id.toString() === userId);
+        const updated = await Tweet.findByIdAndUpdate(
+            req.params.tweetid,
+            alreadyRetweeted
+                ? { $pull: { retweetedBy: userId }, $inc: { retweets: -1 } }
+                : { $addToSet: { retweetedBy: userId }, $inc: { retweets: 1 } },
+            { new: true }
+        ).populate("author");
 
-        const alreadyRetweeted = tweet.retweetedBy.some((id) => id.toString() === userId);
-        if (alreadyRetweeted) {
-            tweet.retweetedBy = tweet.retweetedBy.filter((id) => id.toString() !== userId);
-            tweet.retweets = Math.max(0, tweet.retweets - 1);
-        } else {
-            tweet.retweetedBy.push(userId);
-            tweet.retweets += 1;
-        }
-        await tweet.save();
-        const populated = await tweet.populate("author");
-        return res.status(200).send(populated);
+        return res.status(200).send(updated);
     } catch (error) {
         return res.status(400).send({ error: error.message });
     }
@@ -126,21 +121,18 @@ app.post("/like/:tweetid", async (req, res) => {
         if (!userId) return res.status(400).send({ error: "userId is required" });
 
         const tweet = await Tweet.findById(req.params.tweetid);
-        if (!tweet) { return res.status(404).send({ error: "Tweet not found" });
-        } 
-        if (!tweet.likedBy) tweet.likedBy = [];
-            if (typeof tweet.likes !== "number") tweet.likes = 0;
-        const alreadyLiked = tweet.likedBy.some((id) => id.toString() === userId);
-        if (alreadyLiked) {
-            tweet.likedBy = tweet.likedBy.filter((id) => id.toString() !== userId);
-            tweet.likes = Math.max(0, tweet.likes - 1);
-        } else {
-            tweet.likedBy.push(userId);
-            tweet.likes += 1;
-        }
-        await tweet.save();
-        const populated = await tweet.populate("author");
-        return res.status(200).send(populated);
+        if (!tweet) return res.status(404).send({ error: "Tweet not found" });
+        const alreadyLiked = (tweet.likedBy || []).some(
+            (id) => id.toString() === userId
+        );
+        const updated = await Tweet.findByIdAndUpdate(
+            req.params.tweetid,
+            alreadyLiked
+                ? { $pull: { likedBy: userId }, $inc: { likes: -1 } }
+                : { $addToSet: { likedBy: userId }, $inc: { likes: 1 } },
+            { new: true }
+        ).populate("author");
+        return res.status(200).send(updated);
     } catch (error) {
         return res.status(400).send({ error: error.message });
     }
