@@ -6,6 +6,8 @@ import dns from "dns"
 import User from "./modals/user.js"
 import Tweet from "./modals/tweet.js"
 
+const { ObjectId } = mongoose.Types;
+
 dns.setServers(["8.8.8.8","8.8.4.4"]);
 
 dotenv.config()
@@ -100,12 +102,13 @@ app.post("/retweet/:tweetid", async (req, res) => {
 
         const tweet = await Tweet.findById(req.params.tweetid);
         if (!tweet) return res.status(404).send({ error: "Tweet not found" });
+        const userObjectId = new ObjectId(userId);
         const alreadyRetweeted = (tweet.retweetedBy || []).some((id) => id.toString() === userId);
         const updated = await Tweet.findByIdAndUpdate(
             req.params.tweetid,
             alreadyRetweeted
-                ? { $pull: { retweetedBy: userId }, $inc: { retweets: -1 } }
-                : { $addToSet: { retweetedBy: userId }, $inc: { retweets: 1 } },
+                ? { $pull: { retweetedBy: userObjectId }, $inc: { retweets: -1 } }
+                : { $addToSet: { retweetedBy: userObjectId }, $inc: { retweets: 1 } },
             { new: true }
         ).populate("author");
 
@@ -122,14 +125,15 @@ app.post("/like/:tweetid", async (req, res) => {
 
         const tweet = await Tweet.findById(req.params.tweetid);
         if (!tweet) return res.status(404).send({ error: "Tweet not found" });
+        const userObjectId = new ObjectId(userId);
         const alreadyLiked = (tweet.likedBy || []).some(
             (id) => id.toString() === userId
         );
         const updated = await Tweet.findByIdAndUpdate(
             req.params.tweetid,
             alreadyLiked
-                ? { $pull: { likedBy: userId }, $inc: { likes: -1 } }
-                : { $addToSet: { likedBy: userId }, $inc: { likes: 1 } },
+                ? { $pull: { likedBy: userObjectId }, $inc: { likes: -1 } }
+                : { $addToSet: { likedBy: userObjectId }, $inc: { likes: 1 } },
             { new: true }
         ).populate("author");
         return res.status(200).send(updated);
