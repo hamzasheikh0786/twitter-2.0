@@ -6,7 +6,7 @@ const TweetSchema = new mongoose.Schema({
     retweets: { type: Number, default: 0 },
     comments: { type:Number, default: 0 },
     likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    retweetedby: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    retweetedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     images: { type: String, default: null },
     timestamp: { type: Date, default: Date.now },
 });
