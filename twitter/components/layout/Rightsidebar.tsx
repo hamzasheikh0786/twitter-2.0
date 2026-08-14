@@ -6,8 +6,8 @@ import { Input } from '../ui/input';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-
-
+import { useAuth } from '@/components/context/AuthContext';
+import SubscriptionPage from '@/components/SubscriptionPage';
 
 
 const suggestions = [
@@ -15,29 +15,30 @@ const suggestions = [
     id: '1',
     username: 'narendramodi',
     displayName: 'Narendra Modi',
-    avatar: '',
+    avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=narendramodi',
     verified: true
   },
   {
     id: '2',
     username: 'akshaykumar',
     displayName: 'Akshay Kumar',
-    avatar: 'https://images.pexels.com/photos/1382735/pexels-photo-1382735.jpeg?auto=compress&cs=tinysrgb&w=400',
+    avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=akshaykumar',
     verified: true
   },
   {
     id: '3',
     username: 'rashtrapatibhvn',
     displayName: 'President of India',
-    avatar: '',
+    avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=presidentofindia',
     verified: true
   }
 ];
 
 export default function RightSidebar() {
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  const { user } = useAuth();
+  const [showSubscription, setShowSubscription] = useState(false);
   return (
-    <div className="w-80 p-4 space-y-4">
+    <div className="w-full p-4 space-y-4">
 
       <div className="relative">
         <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -54,11 +55,19 @@ export default function RightSidebar() {
           <p className="text-gray-400 text-sm mb-4">
             Subscribe to unlock new features and if eligible, receive a share of revenue.
           </p>
-          <Button className="bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-full" onClick={() => setIsSubscribed((p)=>!p)}>
-            {isSubscribed ? "Subscribed" : "Subscribe"}
+          <Button className="bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-full w-full" onClick={() => setShowSubscription(true)}>
+            Subscribe
           </Button>
         </CardContent>
       </Card>
+
+      {showSubscription && user && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-black border-gray-800 rounded-xl">
+            <SubscriptionPage onClose={() => setShowSubscription(false)} user={user} />
+          </div>
+        </div>
+      )}
 
       <Card className="bg-gray-900 border-gray-800">
         <CardContent className="p-4">

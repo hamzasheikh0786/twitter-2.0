@@ -1,16 +1,19 @@
 import Landing from "@/components/Landing";
 import Mainlayout from "@/components/layout/MainLayout";
-import { AuthProvider, useAuth } from "@/components/context/AuthContext";
+import { AuthProvider } from "@/components/context/AuthContext";
+import { SubscriptionProvider } from "@/components/context/SubscriptionContext";
 import Image from "next/image";
 
 export default function Home() {
 
   return (
     <AuthProvider>
-      <Mainlayout>
-        {" "}
-        <Landing />
-      </Mainlayout>
+      <SubscriptionProvider>
+        <Mainlayout>
+          {" "}
+          <Landing />
+        </Mainlayout>
+      </SubscriptionProvider>
     </AuthProvider>
   );
 }
