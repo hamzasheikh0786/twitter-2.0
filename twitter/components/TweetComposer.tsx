@@ -1,35 +1,55 @@
 import { useAuth } from "@/components/context/AuthContext";
+import { useSubscription } from "@/components/context/SubscriptionContext";
 import React, { useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
-import { Image, Smile, Calendar, MapPin, BarChart3, Globe } from "lucide-react";
+import { Image, Smile, Calendar, MapPin, BarChart3, Globe, AlertCircle, ArrowUpRight, X } from "lucide-react";
 import { Separator } from "./ui/separator";
 import axios from "axios";
 import axiosInstance from "@/Lib/axiosInstance";
-const TweetComposer = ({ onTweetPosted }: any) => {
+
+interface TweetComposerProps {
+  onTweetPosted: (tweet: unknown) => void;
+}
+
+const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
   const { user } = useAuth();
+  const { canPostTweet, getRemainingTweets, subscription, fetchSubscription } = useSubscription();
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [imageurl, setimageurl] = useState("");
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const maxLength = 200;
-  const handleSubmit = async (e: any) => {
+  const remainingTweets = getRemainingTweets();
+  const canPost = canPostTweet();
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(!user || !content.trim())return
+    if (!user || !content.trim()) return;
+    
+    if (!canPost) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     try {
-      const tweetdata={
-        author:user?._id,
+      const tweetdata = {
+        author: user?._id,
         content,
-        image:imageurl
+        image: imageurl
       }
-      const res=await axiosInstance.post('/tweet',tweetdata)
+      const res = await axiosInstance.post('/tweet', tweetdata)
       onTweetPosted(res.data)
+      
+      await axiosInstance.patch('/subscription/increment-tweet', { email: user.email });
+      await fetchSubscription();
+      
       setContent("")
       setimageurl("")
     } catch (error) {
       console.log(error)
-    }finally{
+    } finally {
       setIsLoading(false)
     }
   };
@@ -182,18 +202,57 @@ const TweetComposer = ({ onTweetPosted }: any) => {
                       orientation="vertical"
                       className="h-6 bg-gray-700"
                     />
+                    
+                    {remainingTweets !== Infinity && (
+                      <div className="flex items-center space-x-2 text-sm text-gray-400">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>{remainingTweets} tweet{remainingTweets !== 1 ? 's' : ''} remaining this month</span>
+                      </div>
+                    )}
+                    
+                    {subscription?.plan === 'gold' && (
+                      <div className="flex items-center space-x-2 text-sm text-yellow-400">
+                        <span>Unlimited tweets</span>
+                      </div>
+                    )}
 
                     <Button
                       type="submit"
-                      disabled={!content.trim() || isOverLimit|| isLoading}
+                      disabled={!content.trim() || isOverLimit || isLoading || !canPost}
                       className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-700 disabled:text-gray-500 text-white font-semibold rounded-full px-6"
                     >
-                      Post
+                      {canPost ? 'Post' : 'Upgrade to Post'}
                     </Button>
                   </div>
                 </div>
               </div>
             </form>
+            
+            {showUpgradeModal && (
+              <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 mt-4">
+                <Card className="w-full max-w-md bg-black border-gray-800 text-white">
+                  <CardContent className="p-6 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-bold">Tweet Limit Reached</h3>
+                      <Button variant="ghost" size="icon" onClick={() => setShowUpgradeModal(false)}>
+                        <X className="h-5 w-5" />
+                      </Button>
+                    </div>
+                    <p className="text-gray-400">You&apos;ve reached your monthly tweet limit on the {subscription?.plan || 'Free'} plan.</p>
+                    <Button 
+                      className="w-full bg-blue-500 hover:bg-blue-600"
+                      onClick={() => {
+                        setShowUpgradeModal(false);
+                        window.location.href = '/subscription';
+                      }}
+                    >
+                      <ArrowUpRight className="h-4 w-4 mr-2" />
+                      Upgrade Plan
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

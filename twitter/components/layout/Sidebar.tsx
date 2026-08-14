@@ -88,7 +88,16 @@ export default function Sidebar({ currentPage = 'home', onNavigate }: SidebarPro
               className="w-full justify-start p-3 rounded-full hover:bg-gray-900 flex items-center text-left"
             >
               <Avatar className="h-10 w-10 mr-3">
-                <AvatarImage src={user.avatar} alt={user.displayName} />
+                <AvatarImage 
+                  src={user.avatar?.includes('googleusercontent.com') 
+                    ? `https://api.dicebear.com/7.x/personas/svg?seed=${user.username}`
+                    : (user.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${user.username}`)}
+                  alt={user.displayName}
+                  onError={(e) => {
+                    e.currentTarget.src = `https://api.dicebear.com/7.x/personas/svg?seed=${user.username}`;
+                  }}
+                  referrerPolicy="no-referrer"
+                />
                 <AvatarFallback>{user.displayName[0]}</AvatarFallback>
               </Avatar>
               <div className="flex-1 text-left">

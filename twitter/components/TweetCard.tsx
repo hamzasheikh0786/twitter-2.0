@@ -18,9 +18,9 @@ import { useAuth } from "@/components/context/AuthContext";
 export default function TweetCard({ tweet, onTweetDeleted }: any) {
   const { user } = useAuth();
   const [tweetstate, settweetstate] = useState(tweet);
-  const likeTweet = async (tweetId: string) => {
+const likeTweet = async (tweetId: string) => {
     try {
-      const res = await axiosInstance.post(`/like/${tweetId}`, {
+      const res = await axiosInstance.post(`/api/like/${tweetId}`, {
         userId: user?._id,
       });
       settweetstate(res.data);
@@ -31,7 +31,7 @@ export default function TweetCard({ tweet, onTweetDeleted }: any) {
 
   const retweetTweet = async (tweetId: string) => {
     try {
-      const res = await axiosInstance.post(`/retweet/${tweetId}`, {
+      const res = await axiosInstance.post(`/api/retweet/${tweetId}`, {
         userId: user?._id,
       });
       settweetstate(res.data);
@@ -41,14 +41,14 @@ export default function TweetCard({ tweet, onTweetDeleted }: any) {
   };
   const deleteTweet = async (tweetId: string) => {
     try {
-      await axiosInstance.delete(`/tweet/${tweetId}`, {
+      await axiosInstance.delete(`/api/tweet/${tweetId}`, {
         data: { userId: user?._id },
       });
       onTweetDeleted?.(tweetId);
     } catch (error) {
       console.log(error);
     }
-};
+  };
 
   const formatNumber = (num: number) => {
     if (!num) return "0";
