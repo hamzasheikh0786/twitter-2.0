@@ -115,25 +115,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       password
     );
     const user = usercred.user;
-    const newuser: any = {
+    const newUser = {
       username,
       displayName,
       avatar: user.photoURL || "https://images.pexels.com/photos/1139743/pexels-photo-1139743.jpeg?auto=compress&cs=tinysrgb&w=400",
       email: user.email,
     };
-    const res = await axiosInstance.post("/register", newuser);
+    const res = await axiosInstance.post("/register", newUser);
     if (res.data) {
       setUser(res.data);
       localStorage.setItem("twitter-user", JSON.stringify(res.data));
     }
-      const mockUser= {
-      _id: "1",
-      username,
-      displayName,
-      avatar: 'https://images.pexels.com/photos/1139743/pexels-photo-1139743.jpeg?auto=compress&cs=tinysrgb&w=400',
-      bio: '',
-      joinedDate: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    };
     setIsLoading(false);
   };
 
@@ -190,15 +182,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           params: { email: firebaseuser.email },
         });
         userData = res.data;
-      } catch (err: any) {
-        const newuser: any = {
+      } catch (err) {
+        const newUser = {
           username: firebaseuser.email.split("@")[0],
           displayName: firebaseuser.displayName || "User",
           avatar: firebaseuser.photoURL || "https://images.pexels.com/photos/1139743/pexels-photo-1139743.jpeg?auto=compress&cs=tinysrgb&w=400",
           email: firebaseuser.email,
         };
 
-        const registerRes = await axiosInstance.post("/register", newuser);
+        const registerRes = await axiosInstance.post("/register", newUser);
         userData = registerRes.data;
       }
 
@@ -208,9 +200,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       } else {
         throw new Error("Login/Register failed: No user data returned");
       }
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
       console.error("Google Sign-In Error:", error);
-      alert(error.response?.data?.message || error.message || "Login failed");
+      alert(err.response?.data?.message || err.message || "Login failed");
     } finally {
       setIsLoading(false);
     }
