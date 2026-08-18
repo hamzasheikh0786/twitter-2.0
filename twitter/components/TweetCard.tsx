@@ -14,18 +14,43 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/context/AuthContext";
 
+interface Tweet {
+  _id: string;
+  author: {
+    _id: string;
+    displayName: string;
+    username: string;
+    avatar: string;
+    verified?: boolean;
+  };
+  content: string;
+  timestamp: string;
+  likes: number;
+  retweets: number;
+  replies: number;
+  comments: number;
+  likedBy: string[];
+  retweetedBy: string[];
+  image?: string;
+}
 
-export default function TweetCard({ tweet, onTweetDeleted }: any) {
+interface TweetCardProps {
+  tweet: Tweet;
+  onTweetDeleted?: (id: string) => void;
+}
+
+export default function TweetCard({ tweet, onTweetDeleted }: TweetCardProps) {
   const { user } = useAuth();
-  const [tweetstate, settweetstate] = useState(tweet);
-const likeTweet = async (tweetId: string) => {
+  const [tweetState, setTweetState] = useState<Tweet>(tweet);
+
+  const likeTweet = async (tweetId: string) => {
     try {
       const res = await axiosInstance.post(`/api/like/${tweetId}`, {
         userId: user?._id,
       });
-      settweetstate(res.data);
-    } catch (error) {
-      console.log(error);
+      setTweetState(res.data);
+    } catch {
+      // Failed to like tweet
     }
   };
 
@@ -34,19 +59,20 @@ const likeTweet = async (tweetId: string) => {
       const res = await axiosInstance.post(`/api/retweet/${tweetId}`, {
         userId: user?._id,
       });
-      settweetstate(res.data);
-    } catch (error) {
-      console.log(error);
+      setTweetState(res.data);
+    } catch {
+      // Failed to retweet
     }
   };
+
   const deleteTweet = async (tweetId: string) => {
     try {
       await axiosInstance.delete(`/api/tweet/${tweetId}`, {
         data: { userId: user?._id },
       });
       onTweetDeleted?.(tweetId);
-    } catch (error) {
-      console.log(error);
+    } catch {
+      // Failed to delete tweet
     }
   };
 
@@ -60,27 +86,27 @@ const likeTweet = async (tweetId: string) => {
     }
     return num.toString();
   };
-  const isLiked = tweetstate.likedBy?.some((id: any) => id.toString() === user?._id);
-  const isRetweet = tweetstate.retweetedBy?.some((id: any) => id.toString() === user?._id);
-  const isOwner = tweetstate.author?._id === user?._id;
+  const isLiked = tweetState.likedBy?.some((id: string) => id === user?._id);
+  const isRetweet = tweetState.retweetedBy?.some((id: string) => id === user?._id);
+  const isOwner = tweetState.author?._id === user?._id;
   return (
     <Card className="bg-black border-gray-800 border-x-0 border-t-0 rounded-none hover:bg-gray-950/50 transition-colors cursor-pointer">
       <CardContent className="p-4">
         <div className="flex space-x-3">
           <Avatar className="h-12 w-12">
             <AvatarImage
-              src={tweetstate.author.avatar}
-              alt={tweetstate.author.displayName}
+              src={tweetState.author.avatar}
+              alt={tweetState.author.displayName}
             />
-            <AvatarFallback>{tweetstate.author.displayName}</AvatarFallback>
+            <AvatarFallback>{tweetState.author.displayName}</AvatarFallback>
           </Avatar>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-2 mb-2">
               <span className="font-bold text-white">
-                {tweetstate.author.displayName}
+                {tweetState.author.displayName}
               </span>
-              {tweetstate.author.verified && (
+              {tweetState.author.verified && (
                 <div className="bg-blue-500 rounded-full p-0.5">
                   <svg
                     className="h-4 w-4 text-white fill-current"
@@ -91,12 +117,12 @@ const likeTweet = async (tweetId: string) => {
                 </div>
               )}
               <span className="text-gray-500">
-                @{tweetstate.author.username}
+                @{tweetState.author.username}
               </span>
               <span className="text-gray-500">·</span>
               <span className="text-gray-500">
-                {tweetstate.timestamp &&
-                  new Date(tweetstate.timestamp).toLocaleDateString("en-us", {
+                {tweetState.timestamp &&
+                  new Date(tweetState.timestamp).toLocaleDateString("en-us", {
                     month: "long",
                     year: "numeric",
                   })}
@@ -109,7 +135,7 @@ const likeTweet = async (tweetId: string) => {
                     className="p-1 rounded-full hover:bg-red-900/20 text-gray-500 hover:text-red-400 mr-1"
                     onClick={(e) => {
                       e.stopPropagation();
-                      deleteTweet(tweetstate._id);
+                      deleteTweet(tweetState._id);
                     }}
                   >
                     Delete
@@ -124,13 +150,13 @@ const likeTweet = async (tweetId: string) => {
               )}</div>
 
             <div className="text-white mb-3 leading-relaxed">
-              {tweetstate.content}
+              {tweetState.content}
             </div>
 
-            {tweetstate.image && (
+            {tweetState.image && (
               <div className="mb-3 rounded-2xl overflow-hidden">
                 <img
-                  src={tweetstate.image}
+                  src={tweetState.image}
                   alt="Tweet image"
                   className="w-full h-auto max-h-96 object-cover"
                 />
@@ -145,7 +171,7 @@ const likeTweet = async (tweetId: string) => {
               >
                 <MessageCircle className="h-5 w-5 group-hover:text-blue-400" />
                 <span className="text-sm">
-                  {formatNumber(tweetstate.comments)}
+                  {formatNumber(tweetState.comments)}
                 </span>
               </Button>
 
@@ -159,7 +185,7 @@ const likeTweet = async (tweetId: string) => {
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  retweetTweet(tweetstate._id);
+                  retweetTweet(tweetState._id);
                 }}
               >
                 <Repeat2
@@ -170,7 +196,7 @@ const likeTweet = async (tweetId: string) => {
                   }`}
                 />
                 <span className="text-sm">
-                  {formatNumber(tweetstate.retweets)}
+                  {formatNumber(tweetState.retweets)}
                 </span>
               </Button>
 
@@ -182,7 +208,7 @@ const likeTweet = async (tweetId: string) => {
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  likeTweet(tweetstate._id);
+                  likeTweet(tweetState._id);
                 }}
               >
                 <Heart
@@ -193,7 +219,7 @@ const likeTweet = async (tweetId: string) => {
                   }`}
                 />
                 <span className="text-sm">
-                  {formatNumber(tweetstate.likes)}
+                  {formatNumber(tweetState.likes)}
                 </span>
               </Button>
 

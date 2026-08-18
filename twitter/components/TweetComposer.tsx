@@ -10,8 +10,28 @@ import { Separator } from "./ui/separator";
 import axios from "axios";
 import axiosInstance from "@/Lib/axiosInstance";
 
+interface Tweet {
+  _id: string;
+  author: {
+    _id: string;
+    displayName: string;
+    username: string;
+    avatar: string;
+    verified?: boolean;
+  };
+  content: string;
+  timestamp: string;
+  likes: number;
+  retweets: number;
+  replies: number;
+  comments: number;
+  likedBy: string[];
+  retweetedBy: string[];
+  image?: string;
+}
+
 interface TweetComposerProps {
-  onTweetPosted: (tweet: unknown) => void;
+  onTweetPosted: (tweet: Tweet) => void;
 }
 
 const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {

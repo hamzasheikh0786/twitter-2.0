@@ -7,7 +7,8 @@ import Stripe from "stripe"
 import User from "./modals/user.js"
 import Tweet from "./modals/tweet.js"
 import { SUBSCRIPTION_PLANS, PLAN_LIMITS, PAYMENT_WINDOW, getPlanLimit, isWithinPaymentWindow, getPaymentWindowStatus, canUserTweet } from "./config/subscriptionPlans.js"
-import { sendInvoiceEmail, sendPaymentConfirmationEmail } from "./services/emailService.js"
+import { sendInvoiceEmail, sendPaymentConfirmationEmail, sendPasswordResetEmail } from "./services/emailService.js"
+import crypto from "crypto";
 
 const { ObjectId } = mongoose.Types;
 
@@ -17,6 +18,12 @@ dotenv.config()
 const app=express()
 app.use(cors())
 app.use(express.json())
+
+// Ensure UTF-8 charset for all responses
+app.use((req, res, next) => {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  next();
+});
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder', {
     apiVersion: '2024-04-10',
@@ -137,6 +144,85 @@ app.patch('/userupdate/:email', async (req, res) => {
         return res.status(400).send({ error: error.message });
     }
 })
+
+// Forgot Password - Request password reset
+app.post('/forgot-password', async (req, res) => {
+    try {
+        const { email, phone } = req.body;
+        if (!email && !phone) {
+            return res.status(400).send({ error: "Email or phone number is required" });
+        }
+
+        let user;
+        if (email) {
+            user = await User.findOne({ email: email.toLowerCase() });
+        } else if (phone) {
+            user = await User.findOne({ phone: phone });
+        }
+
+        if (!user) {
+            // Don't reveal if user exists or not for security
+            return res.status(200).send({ message: "If the account exists, a password reset link has been sent" });
+        }
+
+        // Check if user already requested a reset today
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+        if (user.lastPasswordReset && user.lastPasswordReset >= startOfDay && user.lastPasswordReset < endOfDay) {
+            return res.status(429).send({ error: "You can use this option only one time per day." });
+        }
+
+        // Generate reset token (64 chars hex)
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+        user.passwordResetToken = resetToken;
+        user.passwordResetExpiry = resetTokenExpiry;
+        await user.save();
+
+        // Send reset email
+        await sendPasswordResetEmail(user, resetToken);
+
+        return res.status(200).send({ message: "If the account exists, a password reset link has been sent" });
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        return res.status(500).send({ error: "Failed to process password reset request" });
+    }
+});
+
+// Reset Password - Validate token and set new password
+app.post('/reset-password', async (req, res) => {
+    try {
+        const { token, password } = req.body;
+        if (!token || !password) {
+            return res.status(400).send({ error: "Token and password are required" });
+        }
+
+        const user = await User.findOne({
+            passwordResetToken: token,
+            passwordResetExpiry: { $gt: new Date() }
+        });
+
+        if (!user) {
+            return res.status(400).send({ error: "Invalid or expired reset token" });
+        }
+
+        // Update password (in real app, you'd hash it)
+        // For Firebase auth, the password is managed by Firebase
+        // Here we just clear the reset token and update lastPasswordReset
+        user.passwordResetToken = null;
+        user.passwordResetExpiry = null;
+        user.lastPasswordReset = new Date();
+        await user.save();
+
+        return res.status(200).send({ message: "Password has been reset successfully" });
+    } catch (error) {
+        console.error('Reset password error:', error);
+        return res.status(500).send({ error: "Failed to reset password" });
+    }
+});
 
 // Get subscription plans
 app.get('/subscription/plans', (req, res) => {

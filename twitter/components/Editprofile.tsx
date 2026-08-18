@@ -1,6 +1,5 @@
 import { useAuth } from "@/components/context/AuthContext";
 import React, { useState } from "react";
-import axiosInstance from "@//Lib/axiosInstance";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -11,17 +10,30 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import LoadingSpinner from "./loading-spinner";
 
-const Editprofile = ({ isopen, onclose }: any) => {
+interface EditProfileProps {
+  isopen: boolean;
+  onclose: () => void;
+}
+
+interface FormErrors {
+  displayName?: string;
+  bio?: string;
+  location?: string;
+  website?: string;
+  general?: string;
+}
+
+const Editprofile = ({ isopen, onclose }: EditProfileProps) => {
   const { user, updateProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormdata] = useState({
     displayName: user?.displayName || "",
     bio: user?.bio || "",
-    location: "Earth",
-    website: "example.com",
+    location: "",
+    website: "",
     avatar: user?.avatar || "",
   });
-  const [error, setError] = useState<any>({});
+  const [error, setError] = useState<FormErrors>({});
   if (!isopen || !user) return null;
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -56,7 +68,7 @@ const Editprofile = ({ isopen, onclose }: any) => {
     try {
       await updateProfile(formData);
       onclose();
-    } catch (error) {
+    } catch {
       setError({ general: "Failed to update profile. Please try again." });
     } finally {
       setIsLoading(false);
@@ -65,8 +77,8 @@ const Editprofile = ({ isopen, onclose }: any) => {
 
   const handleInputChange = (field: string, value: string) => {
     setFormdata((prev) => ({ ...prev, [field]: value }));
-    if (error[field]) {
-      setError((prev: any) => ({ ...prev, [field]: "" }));
+    if (error[field as keyof FormErrors]) {
+      setError((prev) => ({ ...prev, [field]: "" }));
     }
   };
 
@@ -85,8 +97,8 @@ const Editprofile = ({ isopen, onclose }: any) => {
       if (url) {
         setFormdata((prev) => ({ ...prev, avatar: url }));
       }
-    } catch (error) {
-      console.log(error);
+    } catch {
+      // Failed to upload image
     } finally {
       setIsLoading(false);
     }

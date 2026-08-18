@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
             </div>
             <div class="detail-row">
               <span class="label">Amount Paid</span>
-              <span class="value amount">₹${amount}</span>
+              <span class="value amount">\u20B9${amount}</span>
             </div>
             <div class="detail-row">
               <span class="label">Razorpay Order ID</span>

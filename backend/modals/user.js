@@ -5,6 +5,7 @@ const UserSchema = new mongoose.Schema({
     displayName: { type: String, required: true },
     avatar: { type: String, required: true },
     email: { type: String, required: true, unique: true },
+    phone: { type: String, default: "" },
     bio: { type: String, default: "" },
     location: { type: String, default: "" },
     website: { type: String, default: "" },
@@ -19,6 +20,9 @@ const UserSchema = new mongoose.Schema({
     stripeCustomerId: { type: String, default: null },
     stripeSubscriptionId: { type: String, default: null },
     lastTweetReset: { type: Date, default: Date.now },
+    passwordResetToken: { type: String, default: null },
+    passwordResetExpiry: { type: Date, default: null },
+    lastPasswordReset: { type: Date, default: null },
 });
 
 export default mongoose.model("User", UserSchema);

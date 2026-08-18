@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { Card, CardContent } from "./ui/card";
 import LoadingSpinner from "./loading-spinner";
@@ -6,27 +6,54 @@ import axiosInstance from "@/Lib/axiosInstance";
 import TweetComposer from "./TweetComposer";
 import TweetCard from "./TweetCard";
 
+interface Tweet {
+  _id: string;
+  author: {
+    _id: string;
+    displayName: string;
+    username: string;
+    avatar: string;
+  };
+  content: string;
+  image?: string;
+  likes: number;
+  retweets: number;
+  replies: number;
+  comments: number;
+  likedBy: string[];
+  retweetedBy: string[];
+  timestamp: string;
+}
+
 const Feed = () => {
-  const [tweets, setTweets] = useState<any>([]);
-  const [loading, setloading] = useState(false);
-  const fetchTweets = async () => {
+  const [tweets, setTweets] = useState<Tweet[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchTweets = useCallback(async () => {
     try {
-      setloading(true);
+      setLoading(true);
       const res = await axiosInstance.get("/post");
-      console.log(res.data);
       setTweets(res.data);
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // Failed to fetch tweets
     } finally {
-      setloading(false);
+      setLoading(false);
     }
-  };
-  useEffect(() => {
-    fetchTweets();
   }, []);
-  const handlenewtweet = (newtweet: any) => {
-    setTweets((prev: any) => [newtweet, ...prev]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchTweets();
+  }, [fetchTweets]);
+
+  const handleNewTweet = (newTweet: Tweet) => {
+    setTweets((prev) => [newTweet, ...prev]);
   };
+
+  const handleTweetDeleted = (id: string) => {
+    setTweets((prev) => prev.filter((t) => t._id !== id));
+  };
+
   return (
     <div className="min-h-screen">
       <div className="sticky top-0 bg-black/90 backdrop-blur-md border-b border-gray-800 z-10">
@@ -51,7 +78,7 @@ const Feed = () => {
           </TabsList>
         </Tabs>
       </div>
-      <TweetComposer onTweetPosted={handlenewtweet}/>
+      <TweetComposer onTweetPosted={handleNewTweet} />
       <div className="divide-y divide-gray-800">
         {loading ? (
           <Card className="bg-black border-none">
@@ -63,10 +90,9 @@ const Feed = () => {
             </CardContent>
           </Card>
         ) : (
-          Array.isArray(tweets) && tweets.map((tweet: any) => <TweetCard key={tweet._id} 
-          tweet={tweet} 
-          onTweetDeleted={(id: string) =>setTweets((prev: any) => prev.filter((t: any) => t._id !== id))
-          } />)
+          tweets.map((tweet) => (
+            <TweetCard key={tweet._id} tweet={tweet} onTweetDeleted={handleTweetDeleted} />
+          ))
         )}
       </div>
     </div>

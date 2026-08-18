@@ -227,7 +227,7 @@ const SubscriptionPage = ({ onClose, user: userProp }: SubscriptionPageProps) =>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 items-stretch mt-4">
           {plans.map(({ key: planKey, popular }) => {
             const plan = SUBSCRIPTION_PLANS[planKey];
             const isCurrentPlan = currentPlan === planKey;
@@ -235,41 +235,41 @@ const SubscriptionPage = ({ onClose, user: userProp }: SubscriptionPageProps) =>
             return (
               <Card
                 key={planKey}
-                className={`bg-gray-900 border-gray-800 transition-all ${
+                className={`bg-gray-900 border-gray-800 transition-all h-full flex flex-col ${
                   isCurrentPlan ? "border-blue-500 ring-2 ring-blue-500/20" : "hover:border-gray-700"
                 } ${popular ? "relative" : ""}`}
               >
                 {popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-blue-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+                    <span className="bg-blue-500 text-white text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">
                       Most Popular
                     </span>
                   </div>
                 )}
-                <CardHeader className="text-center pb-4">
+                <CardHeader className="text-center pb-6 pt-6">
                   <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
-                  <div className="mt-2">
+                  <div className="mt-3">
                     {plan.price === 0 ? (
                       <span className="text-3xl font-bold text-white">Free</span>
                     ) : (
-                      <span className="text-3xl font-bold text-white">₹{plan.price}</span>
+                      <span className="text-3xl font-bold text-white">{"\u20B9"}{plan.price}</span>
                     )}
                     <span className="text-gray-400">/month</span>
                   </div>
                   {isCurrentPlan && (
-                    <span className="inline-block mt-2 px-3 py-1 bg-blue-500/20 text-blue-400 text-sm font-medium rounded-full">
+                    <span className="inline-block mt-3 px-3 py-1 bg-blue-500/20 text-blue-400 text-sm font-medium rounded-full">
                       Current Plan
                     </span>
                   )}
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
+                <CardContent className="space-y-4 flex-1 flex flex-col">
+                  <div className="space-y-3 flex-1">
                     {plan.features.map((feature, index) => (
                       <div key={index} className="flex items-center space-x-3 text-sm">
                         {planKey === "free" && index >= 1 ? (
-                          <X className="h-5 w-5 text-gray-600" />
+                          <X className="h-5 w-5 text-gray-600 flex-shrink-0" />
                         ) : (
-                          <Check className="h-5 w-5 text-green-400" />
+                          <Check className="h-5 w-5 text-green-400 flex-shrink-0" />
                         )}
                         <span className={planKey === "free" && index >= 1 ? "text-gray-500 line-through" : "text-gray-300"}>
                           {feature}
@@ -279,11 +279,11 @@ const SubscriptionPage = ({ onClose, user: userProp }: SubscriptionPageProps) =>
                   </div>
                   
                   <Button
-                    className="w-full"
+                    className="w-full px-4 py-2.5 text-xs text-center whitespace-normal leading snug"
                     disabled={isCurrentPlan || isProcessing}
                     onClick={() => handleUpgrade(planKey)}
                     variant={isCurrentPlan ? "outline" : "default"}
-                    style={{ backgroundColor: popular ? "#1da1f2" : undefined }}
+                    style={{ backgroundColor: !isCurrentPlan ? "#1da1f2" : undefined }}
                   >
                     {isCurrentPlan 
                       ? "Current Plan" 
@@ -291,7 +291,7 @@ const SubscriptionPage = ({ onClose, user: userProp }: SubscriptionPageProps) =>
                       ? "Processing..."
                       : plan.price === 0
                       ? "Free Plan"
-                      : `Upgrade to ${plan.name} - ₹${plan.price}/month`}
+                      : `Upgrade to ${plan.name} - \u20B9${plan.price}/month`}
                   </Button>
                 </CardContent>
               </Card>
@@ -307,7 +307,7 @@ const SubscriptionPage = ({ onClose, user: userProp }: SubscriptionPageProps) =>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center p-4 bg-gray-800 rounded-lg">
                 <div className="text-3xl font-bold text-white">
-                  {planDetails.tweetLimit === -1 ? "∞" : planDetails.tweetLimit}
+                  {planDetails.tweetLimit === -1 ? "\u221E" : planDetails.tweetLimit}
                 </div>
                 <div className="text-gray-400 text-sm">Monthly Tweet Limit</div>
               </div>
@@ -342,7 +342,7 @@ const SubscriptionPage = ({ onClose, user: userProp }: SubscriptionPageProps) =>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">₹{payment.amount}</p>
+                        <p className="font-semibold">{"\u20B9"}{payment.amount}</p>
                         <span className={`text-xs px-2 py-1 rounded-full ${
                           payment.status === "success" ? "bg-green-500/20 text-green-400" :
                           payment.status === "failed" ? "bg-red-500/20 text-red-400" :
@@ -364,7 +364,7 @@ const SubscriptionPage = ({ onClose, user: userProp }: SubscriptionPageProps) =>
             <Clock className="h-5 w-5" />
             <span>
               Payment processing is available only between <strong>10:00 AM - 11:00 AM IST</strong> daily.
-              {paymentWindowOpen ? " ✓ Window is currently OPEN" : " ✕ Window is currently CLOSED"}
+              {paymentWindowOpen ? " \u23F0 Window is currently OPEN" : " \u23F0 Window is currently CLOSED"}
             </span>
           </div>
           <div className="mt-2 flex items-center space-x-3 text-gray-400 text-sm">

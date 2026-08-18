@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-
+import { useAuth } from '@/components/context/AuthContext';
 import { X, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 
 import LoadingSpinner from './loading-spinner';
@@ -10,9 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Separator } from './ui/separator';
 
-import { useAuth } from '@/components/context/AuthContext';
 import TwitterLogo from './Twitterlogo';
 import { Input } from '@base-ui/react/input';
+import ForgotPasswordModal from './ForgotPasswordModal';
 
 
 
@@ -23,9 +23,11 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalProps) {
+    const { login, signup } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
     const [showPassword, setShowPassword] = useState(false);
+    const [showForgotPassword, setShowForgotPassword] = useState(false);
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -35,6 +37,14 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     if (!isOpen) return null;
+
+    const handleForgotPassword = () => {
+        setShowForgotPassword(true);
+    };
+
+    const handleBackToLogin = () => {
+        setShowForgotPassword(false);
+    };
 
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
@@ -101,6 +111,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     };
 
     return (
+    <>
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
             <Card className="w-full max-w-md bg-black border-gray-800 text-white">
             <CardHeader className="relative pb-6">
@@ -192,7 +203,20 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-white">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-white">Password</Label>
+                {mode === 'login' && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="text-blue-400 hover:text-blue-300 text-sm p-0"
+                    onClick={handleForgotPassword}
+                    disabled={isLoading}
+                  >
+                    Forgot password?
+                  </Button>
+                )}
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <Input
@@ -264,13 +288,12 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
         </CardContent>
       </Card>
     </div>
+
+    <ForgotPasswordModal
+      isOpen={showForgotPassword}
+      onClose={() => setShowForgotPassword(false)}
+      onBackToLogin={handleBackToLogin}
+    />
+    </>
   );
 }
-
-function login(email: string, password: string) {
-  throw new Error('Function not implemented.');
-}
-function signup(email: string, password: string, username: string, displayName: string) {
-  throw new Error('Function not implemented.');
-}
-
