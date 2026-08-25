@@ -8,6 +8,11 @@ import {
   Link as LinkIcon,
   MoreHorizontal,
   Camera,
+  Shield,
+  Clock,
+  Globe,
+  AlertTriangle,
+  CheckCircle,
 } from "lucide-react";
 import { useAuth } from "@/components/context/AuthContext";
 import { Button } from "./ui/button";
@@ -38,12 +43,26 @@ interface Tweet {
   image?: string;
 }
 
+interface LoginHistoryEntry {
+  _id?: string;
+  browser: string;
+  os: string;
+  deviceType: 'desktop' | 'laptop' | 'mobile';
+  ipAddress: string;
+  loginTime: string;
+  authMethod: 'password' | 'google' | 'otp' | 'microsoft';
+  success: boolean;
+  blockedReason?: string | null;
+}
+
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, fetchLoginHistory } = useAuth();
   const [activeTab, setActiveTab] = useState("posts");
   const [showEditModal, setShowEditModal] = useState(false);
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loginHistory, setLoginHistory] = useState<LoginHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const fetchTweets = useCallback(async () => {
     if (!user) return;
@@ -58,10 +77,32 @@ export default function ProfilePage() {
     }
   }, [user]);
 
+  const loadLoginHistory = useCallback(async () => {
+    if (!user?.email) return;
+    setHistoryLoading(true);
+    try {
+      const res = await axiosInstance.get("/login-history", {
+        params: { email: user.email },
+      });
+      if (res.data?.loginHistory) {
+        setLoginHistory(res.data.loginHistory);
+      }
+    } catch {
+      // Failed to fetch login history
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTweets();
   }, [fetchTweets]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadLoginHistory();
+  }, [loadLoginHistory]);
 
   const userTweets = tweets.filter((tweet) => tweet.author._id === user?._id);
 
@@ -208,67 +249,14 @@ export default function ProfilePage() {
           >
             Media
           </TabsTrigger>
+          <TabsTrigger
+            value="security"
+            className="data-[state=active]:bg-transparent data-[state=active]:text-white data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:rounded-none text-gray-400 hover:bg-gray-900/50 py-4 font-semibold"
+          >
+            <Shield className="h-4 w-4 inline mr-1" />
+            Security
+          </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="posts" className="mt-0">
-          <div className="divide-y divide-gray-800">
-            { loading ? (
-              <Card className="bg-black border-none">
-                <CardContent className="py-12 text-center">
-                  <div className="text-gray-400">
-                    <h3 className="text-2xl font-bold mb-2">
-                      You haven&apos;t posted yet
-                    </h3>
-                    <p>When you post, it will show up here.</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              userTweets.map((tweet) => (
-                <TweetCard key={tweet._id} tweet={tweet} onTweetDeleted={handleTweetDeleted} />
-              ))
-            )}
-        </div>
-        </TabsContent>
-
-        <TabsContent value="replies" className="mt-0">
-          <Card className="bg-black border-none">
-            <CardContent className="py-12 text-center">
-              <div className="text-gray-400">
-                <h3 className="text-2xl font-bold mb-2">
-                  You haven&apos;t replied yet
-                </h3>
-                <p>When you reply to a post, it will show up here.</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="highlights" className="mt-0">
-          <Card className="bg-black border-none">
-            <CardContent className="py-12 text-center">
-              <div className="text-gray-400">
-                <h3 className="text-2xl font-bold mb-2">
-                  Lights, camera &hellip; attachments!
-                </h3>
-                <p>When you post photos or videos, they will show up here.</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="articles" className="mt-0">
-          <Card className="bg-black border-none">
-            <CardContent className="py-12 text-center">
-              <div className="text-gray-400">
-                <h3 className="text-2xl font-bold mb-2">
-                  You haven&apos;t written any articles
-                </h3>
-                <p>When you write articles, they will show up here.</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="media" className="mt-0">
           <Card className="bg-black border-none">
@@ -281,6 +269,115 @@ export default function ProfilePage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="security" className="mt-0">
+          <div className="space-y-6">
+            <Card className="bg-gray-900 border-gray-800">
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="p-3 bg-blue-500/20 rounded-lg">
+                    <Shield className="h-6 w-6 text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">Login History</h3>
+                    <p className="text-gray-400 text-sm">Track all login activity on your account</p>
+                  </div>
+                </div>
+
+                {historyLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="text-gray-400">Loading login history...</div>
+                  </div>
+                ) : loginHistory.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <Shield className="h-12 w-12 mx-auto mb-4 text-gray-600" />
+                    <p className="text-lg">No login history found</p>
+                    <p className="text-sm mt-1">Your login activity will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {loginHistory.map((entry, index) => (
+                      <div
+                        key={`${entry._id || index}-${entry.loginTime}`}
+                        className="flex items-center space-x-4 p-4 bg-gray-800 rounded-lg hover:bg-gray-700/50 transition-colors"
+                      >
+                        <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gray-700 flex items-center justify-center">
+                          {entry.authMethod === 'otp' && <CheckCircle className="h-6 w-6 text-green-400" />}
+                          {entry.authMethod === 'microsoft' && <Globe className="h-6 w-6 text-blue-400" />}
+                          {entry.authMethod === 'password' && <Clock className="h-6 w-6 text-gray-400" />}
+                          {entry.authMethod === 'google' && <CheckCircle className="h-6 w-6 text-yellow-400" />}
+                          {!entry.success && <AlertTriangle className="h-6 w-6 text-red-400" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium text-white capitalize">{entry.authMethod}</span>
+                            {!entry.success && (
+                              <span className="px-2 py-0.5 text-xs bg-red-500/20 text-red-400 rounded">Failed</span>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-3 text-sm text-gray-400 mt-1 flex-wrap">
+                            <span className="flex items-center space-x-1">
+                              <Globe className="h-3.5 w-3.5" />
+                              <span>{entry.browser}</span>
+                            </span>
+                            <span className="flex items-center space-x-1">
+                              <Clock className="h-3.5 w-3.5" />
+                              <span>{entry.os}</span>
+                            </span>
+                            <span className="flex items-center space-x-1 capitalize">
+                              <span className="flex items-center space-x-1">
+                                <Clock className="h-3.5 w-3.5" />
+                                <span>{entry.deviceType}</span>
+                              </span>
+                            </span>
+                            <span className="font-mono">{entry.ipAddress}</span>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {new Date(entry.loginTime).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </div>
+                        </div>
+                        {!entry.success && entry.blockedReason && (
+                          <div className="text-red-400 text-sm px-3 py-1 bg-red-500/10 rounded">
+                            {entry.blockedReason}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gray-900 border-gray-800">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center space-x-2">
+                  <Shield className="h-5 w-5 text-blue-400" />
+                  <span>Security Settings</span>
+                </h3>
+                <div className="space-y-4 text-sm text-gray-400">
+                  <div className="p-4 bg-gray-800 rounded-lg">
+                    <p className="font-medium text-white mb-2">Two-Factor Authentication</p>
+                    <p>Enabled for Chrome browser logins via email OTP</p>
+                  </div>
+                  <div className="p-4 bg-gray-800 rounded-lg">
+                    <p className="font-medium text-white mb-2">Microsoft Browser Access</p>
+                    <p>Direct login allowed for Microsoft Edge and Internet Explorer</p>
+                  </div>
+                  <div className="p-4 bg-gray-800 rounded-lg">
+                    <p className="font-medium text-white mb-2">Mobile Login Restrictions</p>
+                    <p>Mobile access restricted to 10:00 AM - 1:00 PM daily</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
       <Editprofile

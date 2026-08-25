@@ -12,6 +12,18 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { auth } from "@/components/context/firebase";
 import axiosInstance from "@/Lib/axiosInstance";
 
+interface LoginHistoryEntry {
+  _id?: string;
+  browser: string;
+  os: string;
+  deviceType: 'desktop' | 'laptop' | 'mobile';
+  ipAddress: string;
+  loginTime: string;
+  authMethod: 'password' | 'google' | 'otp' | 'microsoft';
+  success: boolean;
+  blockedReason?: string | null;
+}
+
 interface User {
   _id: string;
   username: string;
@@ -22,6 +34,7 @@ interface User {
   email: string;
   website: string;
   location: string;
+  loginHistory?: LoginHistoryEntry[];
 }
 
 interface AuthContextType {
@@ -43,6 +56,7 @@ interface AuthContextType {
   logout: () => void;
   isLoading: boolean;
   googlesignin: () => void;
+  fetchLoginHistory: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -88,17 +102,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    // Mock authentication - in real app, this would call an API
-    const usercred = await signInWithEmailAndPassword(auth, email, password);
-    const firebaseuser = usercred.user;
-    const res = await axiosInstance.get("/loggedinuser", {
-      params: { email: firebaseuser.email },
-    });
-    if (res.data) {
-      setUser(res.data);
-      localStorage.setItem("twitter-user", JSON.stringify(res.data));
+    try {
+      const usercred = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseuser = usercred.user;
+      const res = await axiosInstance.get("/loggedinuser", {
+        params: { email: firebaseuser.email },
+      });
+      if (res.data) {
+        setUser(res.data);
+        localStorage.setItem("twitter-user", JSON.stringify(res.data));
+      }
+    } catch (err) {
+      console.log("Failed to fetch user:", err);
     }
     setIsLoading(false);
+  };
+
+  const fetchLoginHistory = async () => {
+    if (!user?.email) return;
+    try {
+      const res = await axiosInstance.get("/login-history", {
+        params: { email: user.email },
+      });
+      if (res.data?.loginHistory) {
+        setUser(prev => prev ? { ...prev, loginHistory: res.data.loginHistory } : null);
+      }
+    } catch (err) {
+      console.log("Failed to fetch login history:", err);
+    }
   };
 
   const signup = async (
@@ -219,6 +250,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         logout,
         isLoading,
         googlesignin,
+        fetchLoginHistory,
       }}
     >
       {children}
