@@ -1,5 +1,16 @@
 import mongoose from "mongoose";
 
+const LoginHistorySchema = new mongoose.Schema({
+    browser: { type: String, required: true },
+    os: { type: String, required: true },
+    deviceType: { type: String, enum: ['desktop', 'laptop', 'mobile'], required: true },
+    ipAddress: { type: String, required: true },
+    loginTime: { type: Date, default: Date.now },
+    authMethod: { type: String, enum: ['password', 'google', 'otp', 'microsoft'], required: true },
+    success: { type: Boolean, default: true },
+    blockedReason: { type: String, default: null },
+});
+
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true },
     displayName: { type: String, required: true },
@@ -23,6 +34,17 @@ const UserSchema = new mongoose.Schema({
     passwordResetToken: { type: String, default: null },
     passwordResetExpiry: { type: Date, default: null },
     lastPasswordReset: { type: Date, default: null },
+    loginHistory: [LoginHistorySchema],
+    otp: { type: String, default: null },
+    otpExpiry: { type: Date, default: null },
+    otpAttempts: { type: Number, default: 0 },
+    pendingLogin: {
+        browser: String,
+        os: String,
+        deviceType: String,
+        ipAddress: String,
+        timestamp: Date,
+    },
 });
 
 export default mongoose.model("User", UserSchema);

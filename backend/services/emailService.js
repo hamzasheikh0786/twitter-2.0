@@ -1,13 +1,52 @@
 import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+
+// Load env vars FIRST before reading them
+dotenv.config();
+
+const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+const smtpUser = process.env.SMTP_USER;
+let smtpPass = process.env.SMTP_PASS;
+
+// Fix: Remove spaces from password (common .env issue)
+if (smtpPass) {
+  smtpPass = smtpPass.replace(/\s+/g, '');
+}
+
+console.log('📧 Email Service Config:', {
+  host: smtpHost,
+  port: smtpPort,
+  user: smtpUser ? `${smtpUser.substring(0, 3)}***` : 'NOT SET',
+  pass: smtpPass ? 'SET' : 'NOT SET',
+  passLength: smtpPass ? smtpPass.length : 0,
+});
+
+if (!smtpUser || !smtpPass || smtpUser.includes('your') || smtpPass.includes('your')) {
+  console.warn('⚠️  SMTP credentials not configured! Using placeholder values. Emails will NOT be sent.');
+  console.warn('   Update backend/.env with real SMTP credentials.');
+}
 
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: process.env.SMTP_PORT || 587,
-    secure: false,
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpPort === 465,
+    auth: smtpUser && smtpPass ? {
+        user: smtpUser,
+        pass: smtpPass,
+    } : undefined,
+    debug: true,
+    logger: true,
+});
+
+// Verify transporter on startup
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('❌ SMTP Transporter verification failed:', error.message);
+    console.error('   Check your SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in backend/.env');
+  } else {
+    console.log('✅ SMTP Transporter ready - emails can be sent');
+  }
 });
 
 export async function sendInvoiceEmail(user, plan, paymentDetails) {
@@ -273,16 +312,27 @@ Thank you for choosing Twitter Clone!
     `;
 
     try {
-        await transporter.sendMail({
-            from: `"Twitter Clone" <${process.env.SMTP_USER}>`,
+        if (!smtpUser || !smtpPass || smtpUser.includes('your') || smtpPass.includes('your')) {
+            throw new Error('SMTP credentials not configured. Please update backend/.env with real SMTP credentials.');
+        }
+        
+        const info = await transporter.sendMail({
+            from: `"Twitter Clone" <${smtpUser}>`,
             to: user.email,
             subject: `Password Reset Request - Twitter Clone`,
             text,
             html,
         });
-        console.log(`Password reset email sent to ${user.email}`);
+        console.log(`✅ Password reset email sent to ${user.email}`);
+        console.log(`📧 Message ID: ${info.messageId}`);
+        console.log(`📧 Preview URL: ${nodemailer.getTestMessageUrl(info)}`);
     } catch (error) {
-        console.error('Failed to send password reset email:', error);
+        console.error('❌ Failed to send password reset email:');
+        console.error('   Error:', error.message);
+        console.error('   Code:', error.code);
+        console.error('   Command:', error.command);
+        console.error('   Response:', error.response);
+        console.error('   Response Code:', error.responseCode);
         throw error;
     }
 }
@@ -305,4 +355,117 @@ export function generateSecurePassword(length = 12) {
     
     // Shuffle the password
     return password.split('').sort(() => Math.random() - 0.5).join('');
+}
+
+export async function sendOTPEmail(user, otp, deviceInfo) {
+    const date = new Date().toLocaleDateString('en-IN', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
+    const time = new Date().toLocaleTimeString('en-IN', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #1da1f2 0%, #0d8bd9 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">Twitter Clone</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0;">Login Verification Code</p>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px; border: 1px solid #e1e8ed; border-top: none;">
+            <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center;">
+                <h2 style="margin: 0 0 20px; color: #1a1a1a; font-size: 20px;">Your OTP Code</h2>
+                <p style="color: #1a1a1a; margin: 0 0 15px;">Hi ${user.displayName},</p>
+                <p style="color: #1a1a1a; margin: 0 0 15px;">You're logging in from a new device. Enter the code below to verify your identity:</p>
+                <div style="background: #f0f8ff; border: 2px dashed #1da1f2; border-radius: 12px; padding: 20px; margin: 20px 0;">
+                    <span style="font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #1da1f2; font-family: monospace;">${otp}</span>
+                </div>
+                <p style="color: #657786; font-size: 14px; margin: 0;">This code expires in 10 minutes.</p>
+            </div>
+
+            <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h3 style="margin: 0 0 15px; color: #1a1a1a; font-size: 16px;">Login Details</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #657786; font-weight: 500;">Browser</td>
+                        <td style="padding: 8px 0; text-align: right; font-weight: 600;">${deviceInfo.browser}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #657786; font-weight: 500;">Operating System</td>
+                        <td style="padding: 8px 0; text-align: right; font-weight: 600;">${deviceInfo.os}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #657786; font-weight: 500;">Device Type</td>
+                        <td style="padding: 8px 0; text-align: right; font-weight: 600; text-transform: capitalize;">${deviceInfo.deviceType}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #657786; font-weight: 500;">IP Address</td>
+                        <td style="padding: 8px 0; text-align: right; font-weight: 600; font-family: monospace; font-size: 12px;">${deviceInfo.ipAddress}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #657786; font-weight: 500;">Date & Time</td>
+                        <td style="padding: 8px 0; text-align: right; font-weight: 600;">${date} at ${time}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="margin: 0; color: #856404;"><strong>Security Note:</strong> If you didn't attempt this login, please ignore this email and consider changing your password immediately.</p>
+            </div>
+
+            <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e1e8ed;">
+                <p style="color: #657786; font-size: 14px; margin: 0;">This is an automated email. Please do not reply.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+
+    const text = `
+Hi ${user.displayName},
+
+Your OTP code for Twitter Clone login: ${otp}
+
+Login Details:
+- Browser: ${deviceInfo.browser}
+- OS: ${deviceInfo.os}
+- Device: ${deviceInfo.deviceType}
+- IP: ${deviceInfo.ipAddress}
+- Time: ${date} at ${time}
+
+This code expires in 10 minutes.
+
+If you didn't attempt this login, please ignore this email and consider changing your password.
+
+Thank you for choosing Twitter Clone!
+    `;
+
+    try {
+        if (!smtpUser || !smtpPass || smtpUser.includes('your') || smtpPass.includes('your')) {
+            throw new Error('SMTP credentials not configured');
+        }
+        
+        const info = await transporter.sendMail({
+            from: `"Twitter Clone" <${smtpUser}>`,
+            to: user.email,
+            subject: `Login Verification Code - Twitter Clone`,
+            text,
+            html,
+        });
+        console.log(`✅ OTP email sent to ${user.email}`);
+        console.log(`📧 Message ID: ${info.messageId}`);
+    } catch (error) {
+        console.error('❌ Failed to send OTP email:');
+        console.error('   Error:', error.message);
+        throw error;
+    }
 }

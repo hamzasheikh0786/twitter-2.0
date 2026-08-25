@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@base-ui/react/input';
-import { sendPasswordResetEmail } from 'firebase/auth'
-import { auth } from '@/components/context/firebase';
+import { generateSecurePassword } from '@/Lib/passwordGenerator';
+import axiosInstance from '@/Lib/axiosInstance';
 import TwitterLogo from '@/components/Twitterlogo';
 
 interface ForgotPasswordProps {
@@ -53,16 +53,29 @@ export default function ForgotPasswordModal({ isOpen, onClose, onBackToLogin }: 
     setIsLoading(true);
     setError('');
 
-  try {
-      await sendPasswordResetEmail(auth, contactValue.toLowerCase());
-      setSuccessMessage('Password reset instructions sent! Check your inbox.');
-      setStep('success');
-  } catch (err: unknown) {
-      const error = err as { code?: string };
-      if (error.code === 'auth/user-not-found') {
-        setSuccessMessage('Password reset instructions sent! Check your inbox.');
-        setStep('success');
-    } else {
+    try {
+      const requestData = contactType === 'email' 
+        ? { email: contactValue.toLowerCase() }
+        : { phone: contactValue };
+      
+      const response = await axiosInstance.post('/forgot-password', requestData);
+
+      if (response.status === 429) {
+        setError('You can use this option only one time per day.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Generate a secure password for the user
+      const newPassword = generateSecurePassword(12);
+      setGeneratedPassword(newPassword);
+      setSuccessMessage(response.data.message || 'Password reset instructions sent!');
+      setStep('verify');
+    } catch (err: unknown) {
+      const error = err as { response?: { status?: number } };
+      if (error.response?.status === 429) {
+        setError('You can use this option only one time per day.');
+      } else {
         setError('Failed to send reset instructions. Please try again.');
       }
     } finally {

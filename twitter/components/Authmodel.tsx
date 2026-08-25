@@ -13,6 +13,7 @@ import { Separator } from './ui/separator';
 import TwitterLogo from './Twitterlogo';
 import { Input } from '@base-ui/react/input';
 import ForgotPasswordModal from './ForgotPasswordModal';
+import OTPModal from './OTPModal';
 
 
 
@@ -28,6 +29,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
     const [showPassword, setShowPassword] = useState(false);
     const [showForgotPassword, setShowForgotPassword] = useState(false);
+    const [showOTP, setShowOTP] = useState(false);
+    const [otpEmail, setOtpEmail] = useState('');
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -44,6 +47,15 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
 
     const handleBackToLogin = () => {
         setShowForgotPassword(false);
+    };
+
+    const handleOTPSuccess = (user: { email: string }) => {
+        login(user.email, ''); // Password not needed as backend already validated
+        onClose();
+        setFormData({ email: '', password: '', username: '', displayName: '' });
+        setErrors({});
+        setShowOTP(false);
+        setOtpEmail('');
     };
 
     const validateForm = () => {
@@ -83,19 +95,57 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
         e.preventDefault();
         if (!validateForm() || isLoading) return;
 
-    try {
         if (mode === 'login') {
-            await login(formData.email, formData.password);
+            setIsLoading(true);
+            setErrors({});
+            try {
+                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: formData.email, 
+                        password: formData.password 
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    if (data.blocked && data.reason === 'mobile_time_restriction') {
+                        setErrors({ general: data.error });
+                    } else if (data.requireOTP) {
+                        setOtpEmail(data.email);
+                        setShowOTP(true);
+                    } else {
+                        setErrors({ general: data.error || 'Login failed' });
+                    }
+                    setIsLoading(false);
+                    return;
+                }
+
+                if (data.user) {
+                    await login(data.user.email, '');
+                }
+                onClose();
+                setFormData({ email: '', password: '', username: '', displayName: '' });
+                setErrors({});
+            } catch {
+                setErrors({ general: 'Authentication failed. Please try again.' });
+            } finally {
+                setIsLoading(false);
+            }
         } else {
-            await signup(formData.email, formData.password, formData.username, formData.displayName);
+            // Signup flow remains the same
+            try {
+                await signup(formData.email, formData.password, formData.username, formData.displayName);
+                onClose();
+                setFormData({ email: '', password: '', username: '', displayName: '' });
+                setErrors({});
+            } catch {
+                setErrors({ general: 'Authentication failed. Please try again.' });
+            }
         }
-    onClose();
-    setFormData({ email: '', password: '', username: '', displayName: '' });
-    setErrors({});
-    } catch (error) {
-        setErrors({ general: 'Authentication failed. Please try again.' });
-    }
-};
+    };
 
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -293,6 +343,13 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
       isOpen={showForgotPassword}
       onClose={() => setShowForgotPassword(false)}
       onBackToLogin={handleBackToLogin}
+    />
+
+    <OTPModal
+      isOpen={showOTP}
+      onClose={() => setShowOTP(false)}
+      onSuccess={handleOTPSuccess}
+      email={otpEmail}
     />
     </>
   );

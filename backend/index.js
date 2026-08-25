@@ -7,7 +7,8 @@ import Stripe from "stripe"
 import User from "./modals/user.js"
 import Tweet from "./modals/tweet.js"
 import { SUBSCRIPTION_PLANS, PLAN_LIMITS, PAYMENT_WINDOW, getPlanLimit, isWithinPaymentWindow, getPaymentWindowStatus, canUserTweet } from "./config/subscriptionPlans.js"
-import { sendInvoiceEmail, sendPaymentConfirmationEmail, sendPasswordResetEmail } from "./services/emailService.js"
+import { sendInvoiceEmail, sendPaymentConfirmationEmail, sendPasswordResetEmail, sendOTPEmail } from "./services/emailService.js"
+import { parseUserAgent, getClientIp, isMicrosoftBrowser, isChromeBrowser, isMobileDevice, isWithinMobileLoginWindow, generateOTP, getTimeWindowStatus } from "./utils/deviceDetector.js"
 import crypto from "crypto";
 
 const { ObjectId } = mongoose.Types;
@@ -145,10 +146,233 @@ app.patch('/userupdate/:email', async (req, res) => {
     }
 })
 
+// Login endpoint with device detection and environment-based auth
+app.post('/login', async (req, res) => {
+    try {
+        const { email, password, firebaseUid } = req.body;
+        const userAgent = req.headers['user-agent'] || '';
+        const clientIp = getClientIp(req);
+
+        // Parse device info
+        const { browser, os, deviceType } = parseUserAgent(userAgent);
+        const isMicrosoft = isMicrosoftBrowser(browser);
+        const isChrome = isChromeBrowser(browser);
+        const isMobile = isMobileDevice(deviceType);
+
+        // Find user by email or firebaseUid
+        let user;
+        if (firebaseUid) {
+            user = await User.findOne({ email: email.toLowerCase() });
+        } else {
+            user = await User.findOne({ email: email.toLowerCase() });
+        }
+
+        if (!user) {
+            // Log failed attempt
+            return res.status(401).send({ error: "Invalid credentials" });
+        }
+
+        // Check mobile time window restriction
+        if (isMobile && !isWithinMobileLoginWindow()) {
+            const windowStatus = getTimeWindowStatus();
+            
+            // Log blocked attempt
+            user.loginHistory.push({
+                browser,
+                os,
+                deviceType,
+                ipAddress: clientIp,
+                authMethod: 'password',
+                success: false,
+                blockedReason: `Mobile login only allowed between ${windowStatus.windowStart} - ${windowStatus.windowEnd}`
+            });
+            await user.save();
+
+            return res.status(403).send({ 
+                error: `Mobile login only allowed between ${windowStatus.windowStart} - ${windowStatus.windowEnd}`,
+                blocked: true,
+                windowStatus,
+                reason: 'mobile_time_restriction'
+            });
+        }
+
+        // Microsoft browsers - allow direct login
+        if (isMicrosoft) {
+            // Log successful login
+            user.loginHistory.push({
+                browser,
+                os,
+                deviceType,
+                ipAddress: clientIp,
+                authMethod: 'microsoft',
+                success: true
+            });
+            await user.save();
+
+            return res.status(200).send({
+                user,
+                authType: 'direct',
+                message: 'Login successful (Microsoft browser)'
+            });
+        }
+
+        // Chrome browsers - require OTP
+        if (isChrome) {
+            // Generate OTP
+            const otp = generateOTP(6);
+            const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+            user.otp = otp;
+            user.otpExpiry = otpExpiry;
+            user.otpAttempts = 0;
+            user.pendingLogin = { browser, os, deviceType, ipAddress: clientIp, timestamp: new Date() };
+            await user.save();
+
+            // Send OTP email
+            try {
+                await sendOTPEmail(user, otp, { browser, os, deviceType, ipAddress: clientIp });
+            } catch (emailError) {
+                console.error('Failed to send OTP email:', emailError);
+                return res.status(500).send({ error: 'Failed to send verification code' });
+            }
+
+            return res.status(200).send({
+                requireOTP: true,
+                message: 'OTP sent to your email. Please verify to complete login.',
+                email: user.email
+            });
+        }
+
+        // Other browsers - direct login
+        user.loginHistory.push({
+            browser,
+            os,
+            deviceType,
+            ipAddress: clientIp,
+            authMethod: 'password',
+            success: true
+        });
+        await user.save();
+
+        return res.status(200).send({
+            user,
+            authType: 'direct',
+            message: 'Login successful'
+        });
+
+    } catch (error) {
+        console.error('Login error:', error);
+        return res.status(500).send({ error: "Login failed" });
+    }
+});
+
+// OTP Verification endpoint
+app.post('/verify-otp', async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        
+        if (!email || !otp) {
+            return res.status(400).send({ error: "Email and OTP are required" });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+        if (!user) {
+            return res.status(404).send({ error: "User not found" });
+        }
+
+        // Check if OTP exists and is valid
+        if (!user.otp || !user.otpExpiry) {
+            return res.status(400).send({ error: "No pending OTP verification" });
+        }
+
+        if (user.otpExpiry < new Date()) {
+            user.otp = null;
+            user.otpExpiry = null;
+            user.otpAttempts = 0;
+            user.pendingLogin = null;
+            await user.save();
+            return res.status(400).send({ error: "OTP expired. Please try logging in again." });
+        }
+
+        if (user.otp !== otp) {
+            user.otpAttempts += 1;
+            await user.save();
+            
+            if (user.otpAttempts >= 3) {
+                user.otp = null;
+                user.otpExpiry = null;
+                user.otpAttempts = 0;
+                user.pendingLogin = null;
+                await user.save();
+                return res.status(400).send({ error: "Too many failed attempts. Please try logging in again." });
+            }
+            
+            return res.status(400).send({ error: "Invalid OTP", attemptsLeft: 3 - user.otpAttempts });
+        }
+
+        // OTP valid - clear OTP fields and log successful login
+        const { browser, os, deviceType, ipAddress } = user.pendingLogin || { browser: 'Unknown', os: 'Unknown', deviceType: 'desktop', ipAddress: 'Unknown' };
+        
+        user.otp = null;
+        user.otpExpiry = null;
+        user.otpAttempts = 0;
+        user.pendingLogin = null;
+
+        user.loginHistory.push({
+            browser,
+            os,
+            deviceType,
+            ipAddress,
+            authMethod: 'otp',
+            success: true
+        });
+        await user.save();
+
+        return res.status(200).send({
+            user,
+            authType: 'otp',
+            message: 'Login successful with OTP verification'
+        });
+
+    } catch (error) {
+        console.error('OTP verification error:', error);
+        return res.status(500).send({ error: "OTP verification failed" });
+    }
+});
+
+// Get login history for user
+app.get('/login-history', async (req, res) => {
+    try {
+        const { email } = req.query;
+        if (!email) {
+            return res.status(400).send({ error: "Email is required" });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+        if (!user) {
+            return res.status(404).send({ error: "User not found" });
+        }
+
+        // Return login history sorted by most recent first
+        const history = [...user.loginHistory].sort((a, b) => new Date(b.loginTime) - new Date(a.loginTime));
+        return res.status(200).send({ loginHistory: history });
+    } catch (error) {
+        console.error('Login history error:', error);
+        return res.status(500).send({ error: "Failed to fetch login history" });
+    }
+});
+
+// Mobile login window status
+app.get('/mobile-login-window', (req, res) => {
+    return res.status(200).send(getTimeWindowStatus());
+});
+
 // Forgot Password - Request password reset
 app.post('/forgot-password', async (req, res) => {
     try {
         const { email, phone } = req.body;
+        console.log('🔐 Forgot password request:', { email, phone });
+        
         if (!email && !phone) {
             return res.status(400).send({ error: "Email or phone number is required" });
         }
@@ -161,9 +385,12 @@ app.post('/forgot-password', async (req, res) => {
         }
 
         if (!user) {
+            console.log('👤 User not found for:', email || phone);
             // Don't reveal if user exists or not for security
             return res.status(200).send({ message: "If the account exists, a password reset link has been sent" });
         }
+
+        console.log('👤 User found:', { id: user._id, email: user.email, displayName: user.displayName });
 
         // Check if user already requested a reset today
         const now = new Date();
@@ -171,6 +398,7 @@ app.post('/forgot-password', async (req, res) => {
         const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
         if (user.lastPasswordReset && user.lastPasswordReset >= startOfDay && user.lastPasswordReset < endOfDay) {
+            console.log('⏰ Rate limited - user already requested reset today');
             return res.status(429).send({ error: "You can use this option only one time per day." });
         }
 
@@ -182,7 +410,10 @@ app.post('/forgot-password', async (req, res) => {
         user.passwordResetExpiry = resetTokenExpiry;
         await user.save();
 
+        console.log('🔑 Reset token generated:', resetToken.substring(0, 8) + '...');
+
         // Send reset email
+        console.log('📧 Sending reset email to:', user.email);
         await sendPasswordResetEmail(user, resetToken);
 
         return res.status(200).send({ message: "If the account exists, a password reset link has been sent" });
