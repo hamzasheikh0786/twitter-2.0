@@ -5,6 +5,7 @@ import LoadingSpinner from "./loading-spinner";
 import axiosInstance from "@/Lib/axiosInstance";
 import TweetComposer from "./TweetComposer";
 import TweetCard from "./TweetCard";
+import { useTweetNotifications } from "@/components/hooks/useTweetNotifications";
 
 interface Tweet {
   _id: string;
@@ -28,6 +29,8 @@ interface Tweet {
 const Feed = () => {
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useTweetNotifications(tweets);
 
   const fetchTweets = useCallback(async () => {
     try {

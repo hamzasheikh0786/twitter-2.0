@@ -11,6 +11,9 @@ import {
   Repeat2,
   Share,
   MoreHorizontal,
+  Mic,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { useAuth } from "@/components/context/AuthContext";
 
@@ -32,6 +35,10 @@ interface Tweet {
   likedBy: string[];
   retweetedBy: string[];
   image?: string;
+  audioUrl?: string;
+  audioDuration?: number;
+  audioFormat?: string;
+  isAudioTweet?: boolean;
 }
 
 interface TweetCardProps {
@@ -149,7 +156,7 @@ export default function TweetCard({ tweet, onTweetDeleted }: TweetCardProps) {
               </div>
               )}</div>
 
-            <div className="text-white mb-3 leading-relaxed">
+            <div className="text-white mb-3 leading-relaxed pr-4">
               {tweetState.content}
             </div>
 
@@ -163,7 +170,32 @@ export default function TweetCard({ tweet, onTweetDeleted }: TweetCardProps) {
               </div>
             )}
 
-            <div className="flex items-center justify-between max-w-md">
+            {tweetState.isAudioTweet && tweetState.audioUrl && (
+              <div className="mb-3 rounded-2xl overflow-hidden bg-gray-800 p-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Mic className="h-6 w-6 text-purple-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-sm font-medium text-white">Audio Tweet</span>
+                      {tweetState.audioDuration && (
+                        <span className="text-xs text-gray-500">
+                          {Math.floor(tweetState.audioDuration / 60)}:{String(tweetState.audioDuration % 60).padStart(2, '0')}
+                        </span>
+                      )}
+                    </div>
+                    <audio
+                      src={tweetState.audioUrl}
+                      controls
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between w-full">
               <Button
                 variant="ghost"
                 size="sm"

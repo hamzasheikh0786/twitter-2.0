@@ -35,6 +35,9 @@ interface User {
   website: string;
   location: string;
   loginHistory?: LoginHistoryEntry[];
+  notificationEnabled?: boolean;
+  language?: string;
+  phone?: string;
 }
 
 interface AuthContextType {
@@ -52,7 +55,9 @@ interface AuthContextType {
     location: string;
     website: string;
     avatar: string;
+    language?: string;
   }) => Promise<void>;
+  updateNotificationPreference: (enabled: boolean) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
   googlesignin: () => void;
@@ -194,6 +199,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     setIsLoading(false);
   };
+
+  const updateNotificationPreference = async (enabled: boolean) => {
+    if (!user) return;
+
+    setIsLoading(true);
+    try {
+      const updatedUser: User = {
+        ...user,
+        notificationEnabled: enabled,
+      };
+      const res = await axiosInstance.patch(
+        `/userupdate/${user.email}`,
+        updatedUser
+      );
+      if (res.data) {
+        setUser(updatedUser);
+        localStorage.setItem("twitter-user", JSON.stringify(updatedUser));
+      }
+    } catch (err) {
+      console.log("Failed to update notification preference:", err);
+    }
+    setIsLoading(false);
+  };
+
   const googlesignin = async () => {
     setIsLoading(true);
 
@@ -247,6 +276,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         login,
         signup,
         updateProfile,
+        updateNotificationPreference,
         logout,
         isLoading,
         googlesignin,

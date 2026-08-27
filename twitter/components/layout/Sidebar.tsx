@@ -11,7 +11,8 @@ import {
   User,
   MoreHorizontal,
   Settings,
-  LogOut
+  LogOut,
+  Globe
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -25,6 +26,8 @@ import { Button } from '../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import TwitterLogo from '../Twitterlogo';
 import { useAuth } from '@/components/context/AuthContext';
+import { useLanguage } from '@/components/context/LanguageContext';
+import LanguageSelector from '@/components/LanguageSelector';
 
 interface SidebarProps {
   currentPage?: string;
@@ -33,6 +36,8 @@ interface SidebarProps {
 
 export default function Sidebar({ currentPage = 'home', onNavigate }: SidebarProps) {
   const { user, logout } = useAuth();
+  const { language, availableLanguages, t } = useLanguage();
+  const currentLang = availableLanguages.find(l => l.code === language);
 
   const navigation = [
     { name: 'Home', icon: Home, current: currentPage === 'home', page: 'home' },
@@ -107,9 +112,16 @@ export default function Sidebar({ currentPage = 'home', onNavigate }: SidebarPro
               <MoreHorizontal className="h-5 w-5 text-gray-400" />
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56 bg-black border-gray-800">
-              <DropdownMenuItem className="text-white hover:bg-gray-900">
+              <div className="p-2 border-b border-gray-800">
+                <LanguageSelector variant="dropdown" />
+              </div>
+              <DropdownMenuSeparator className="bg-gray-800" />
+              <DropdownMenuItem 
+                className="text-white hover:bg-gray-900"
+                onClick={() => onNavigate?.("settings")}
+              >
                 <Settings className="mr-2 h-4 w-4" />
-                Settings
+                {t("common.settings")}
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-gray-800" />
               <DropdownMenuItem 
@@ -117,7 +129,7 @@ export default function Sidebar({ currentPage = 'home', onNavigate }: SidebarPro
                 onClick={logout}
               >
                 <LogOut className="mr-2 h-4 w-4" />
-                Log out @{user.username}
+                {t("common.logout")} @{user.username}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

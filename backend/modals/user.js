@@ -45,6 +45,14 @@ const UserSchema = new mongoose.Schema({
         ipAddress: String,
         timestamp: Date,
     },
+    audioTweetOtp: { type: String, default: null },
+    audioTweetOtpExpiry: { type: Date, default: null },
+    audioTweetOtpAttempts: { type: Number, default: 0 },
+    language: { type: String, default: "en" },
+    languageChangeOtp: { type: String, default: null },
+    languageChangeOtpExpiry: { type: Date, default: null },
+    languageChangeOtpAttempts: { type: Number, default: 0 },
+    pendingLanguage: { type: String, default: null },
 });
 
 export default mongoose.model("User", UserSchema);

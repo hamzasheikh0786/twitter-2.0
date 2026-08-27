@@ -469,3 +469,99 @@ Thank you for choosing Twitter Clone!
         throw error;
     }
 }
+
+export async function sendAudioTweetOTPEmail(user, otp) {
+    const date = new Date().toLocaleDateString('en-IN', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
+    const time = new Date().toLocaleTimeString('en-IN', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">Twitter Clone</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0;">Audio Tweet Verification Code</p>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px; border: 1px solid #e1e8ed; border-top: none;">
+            <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center;">
+                <h2 style="margin: 0 0 20px; color: #1a1a1a; font-size: 20px;">Your OTP Code</h2>
+                <p style="color: #1a1a1a; margin: 0 0 15px;">Hi ${user.displayName},</p>
+                <p style="color: #1a1a1a; margin: 0 0 15px;">You're trying to post an audio tweet. Enter the code below to verify your identity:</p>
+                <div style="background: #f5f0ff; border: 2px dashed #8b5cf6; border-radius: 12px; padding: 20px; margin: 20px 0;">
+                    <span style="font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #8b5cf6; font-family: monospace;">${otp}</span>
+                </div>
+                <p style="color: #657786; font-size: 14px; margin: 0;">This code expires in 10 minutes.</p>
+            </div>
+
+            <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h3 style="margin: 0 0 15px; color: #1a1a1a; font-size: 16px;">Important Reminders</h3>
+                <ul style="margin: 0; padding-left: 20px; color: #1a1a1a; font-size: 14px;">
+                    <li style="margin-bottom: 8px;">Audio tweets only allowed between 2:00 PM - 7:00 PM IST</li>
+                    <li style="margin-bottom: 8px;">Maximum duration: 5 minutes</li>
+                    <li style="margin-bottom: 8px;">Maximum file size: 100 MB</li>
+                    <li style="margin-bottom: 8px;">Supported formats: MP3, WAV, M4A, OGG</li>
+                </ul>
+            </div>
+
+            <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="margin: 0; color: #856404;"><strong>Security Note:</strong> If you didn't attempt to post an audio tweet, please ignore this email and consider changing your password immediately.</p>
+            </div>
+
+            <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e1e8ed;">
+                <p style="color: #657786; font-size: 14px; margin: 0;">This is an automated email. Please do not reply.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+
+    const text = `
+Hi ${user.displayName},
+
+Your OTP code for Twitter Clone audio tweet: ${otp}
+
+Important Reminders:
+- Audio tweets only allowed between 2:00 PM - 7:00 PM IST
+- Maximum duration: 5 minutes
+- Maximum file size: 100 MB
+- Supported formats: MP3, WAV, M4A, OGG
+
+This code expires in 10 minutes.
+
+If you didn't attempt to post an audio tweet, please ignore this email and consider changing your password.
+
+Thank you for choosing Twitter Clone!
+    `;
+
+    try {
+        if (!smtpUser || !smtpPass || smtpUser.includes('your') || smtpPass.includes('your')) {
+            throw new Error('SMTP credentials not configured');
+        }
+        
+        const info = await transporter.sendMail({
+            from: `"Twitter Clone" <${smtpUser}>`,
+            to: user.email,
+            subject: `Audio Tweet Verification Code - Twitter Clone`,
+            text,
+            html,
+        });
+        console.log(`✅ Audio tweet OTP email sent to ${user.email}`);
+        console.log(`📧 Message ID: ${info.messageId}`);
+    } catch (error) {
+        console.error('❌ Failed to send audio tweet OTP email:');
+        console.error('   Error:', error.message);
+        throw error;
+    }
+}
