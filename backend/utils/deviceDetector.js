@@ -137,3 +137,52 @@ export function getTimeWindowStatus() {
         timeUntilClose: timeUntilClose ? `${Math.floor(timeUntilClose / 60)}h ${timeUntilClose % 60}m` : null,
     };
 }
+
+// Audio tweet time window: 2:00 PM - 7:00 PM IST
+export function isWithinAudioTweetWindow() {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentMinutes = hours * 60 + minutes;
+
+    // 2:00 PM = 840 minutes, 7:00 PM = 1140 minutes
+    const windowStart = 14 * 60; // 840
+    const windowEnd = 19 * 60;   // 1140
+
+    return currentMinutes >= windowStart && currentMinutes < windowEnd;
+}
+
+export function getAudioTweetWindowStatus() {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentMinutes = hours * 60 + minutes;
+
+    const windowStart = 14 * 60; // 2:00 PM
+    const windowEnd = 19 * 60;   // 7:00 PM
+
+    const isOpen = currentMinutes >= windowStart && currentMinutes < windowEnd;
+
+    let timeUntilOpen = null;
+    let timeUntilClose = null;
+
+    if (!isOpen) {
+        if (currentMinutes < windowStart) {
+            timeUntilOpen = windowStart - currentMinutes;
+        } else {
+            timeUntilOpen = (24 * 60 - currentMinutes) + windowStart;
+        }
+        timeUntilClose = windowEnd - currentMinutes;
+        if (timeUntilClose < 0) timeUntilClose += 24 * 60;
+    } else {
+        timeUntilClose = windowEnd - currentMinutes;
+    }
+
+    return {
+        isOpen,
+        windowStart: '2:00 PM',
+        windowEnd: '7:00 PM',
+        timeUntilOpen: timeUntilOpen ? `${Math.floor(timeUntilOpen / 60)}h ${timeUntilOpen % 60}m` : null,
+        timeUntilClose: timeUntilClose ? `${Math.floor(timeUntilClose / 60)}h ${timeUntilClose % 60}m` : null,
+    };
+}

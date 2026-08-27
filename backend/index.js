@@ -6,9 +6,10 @@ import dns from "dns"
 import Stripe from "stripe"
 import User from "./modals/user.js"
 import Tweet from "./modals/tweet.js"
+import AudioTweet from "./modals/audioTweet.js"
 import { SUBSCRIPTION_PLANS, PLAN_LIMITS, PAYMENT_WINDOW, getPlanLimit, isWithinPaymentWindow, getPaymentWindowStatus, canUserTweet } from "./config/subscriptionPlans.js"
-import { sendInvoiceEmail, sendPaymentConfirmationEmail, sendPasswordResetEmail, sendOTPEmail } from "./services/emailService.js"
-import { parseUserAgent, getClientIp, isMicrosoftBrowser, isChromeBrowser, isMobileDevice, isWithinMobileLoginWindow, generateOTP, getTimeWindowStatus } from "./utils/deviceDetector.js"
+import { sendInvoiceEmail, sendPaymentConfirmationEmail, sendPasswordResetEmail, sendOTPEmail, sendAudioTweetOTPEmail } from "./services/emailService.js"
+import { parseUserAgent, getClientIp, isMicrosoftBrowser, isChromeBrowser, isMobileDevice, isWithinMobileLoginWindow, generateOTP, getTimeWindowStatus, isWithinAudioTweetWindow, getAudioTweetWindowStatus } from "./utils/deviceDetector.js"
 import crypto from "crypto";
 
 const { ObjectId } = mongoose.Types;
@@ -661,6 +662,225 @@ app.post('/tweet', checkTweetLimit, async (req, res) => {
     }
 })
 
+// Audio Tweet - Check time window
+app.get('/audio-tweet/window', (req, res) => {
+    res.status(200).send(getAudioTweetWindowStatus());
+});
+
+// Audio Tweet - Request OTP for audio upload
+app.post('/audio-tweet/request-otp', async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).send({ error: "Email is required" });
+        }
+
+        // Check audio tweet time window
+        if (!isWithinAudioTweetWindow()) {
+            const windowStatus = getAudioTweetWindowStatus();
+            return res.status(403).send({ 
+                error: `Audio tweets only allowed between ${windowStatus.windowStart} - ${windowStatus.windowEnd} IST`,
+                windowStatus,
+                blocked: true
+            });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+        if (!user) {
+            return res.status(200).send({ message: "If the account exists, an OTP has been sent" });
+        }
+
+        // Generate OTP
+        const otp = generateOTP(6);
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        user.audioTweetOtp = otp;
+        user.audioTweetOtpExpiry = otpExpiry;
+        user.audioTweetOtpAttempts = 0;
+        await user.save();
+
+        // Send OTP email
+        try {
+            await sendAudioTweetOTPEmail(user, otp);
+        } catch (emailError) {
+            console.error('Failed to send audio tweet OTP email:', emailError);
+            return res.status(500).send({ error: 'Failed to send verification code' });
+        }
+
+        return res.status(200).send({ 
+            message: "OTP sent to your email. Please verify to upload audio tweet.",
+            email: user.email
+        });
+    } catch (error) {
+        console.error('Audio tweet OTP request error:', error);
+        return res.status(500).send({ error: "Failed to process OTP request" });
+    }
+});
+
+// Audio Tweet - Verify OTP and upload audio
+app.post('/audio-tweet/upload', async (req, res) => {
+    try {
+        const { email, otp, audioUrl, audioDuration, audioSize, audioFormat, content } = req.body;
+        
+        if (!email || !otp || !audioUrl) {
+            return res.status(400).send({ error: "Email, OTP, and audio URL are required" });
+        }
+
+        // Check audio tweet time window
+        if (!isWithinAudioTweetWindow()) {
+            const windowStatus = getAudioTweetWindowStatus();
+            return res.status(403).send({ 
+                error: `Audio tweets only allowed between ${windowStatus.windowStart} - ${windowStatus.windowEnd} IST`,
+                windowStatus,
+                blocked: true
+            });
+        }
+
+        // Validate audio constraints
+        const maxDuration = 5 * 60; // 5 minutes in seconds
+        const maxSize = 100 * 1024 * 1024; // 100 MB in bytes
+        
+        if (audioDuration > maxDuration) {
+            return res.status(400).send({ 
+                error: `Audio duration exceeds 5 minutes limit. Current: ${Math.round(audioDuration / 60)} minutes` 
+            });
+        }
+        
+        if (audioSize > maxSize) {
+            return res.status(400).send({ 
+                error: `Audio file size exceeds 100 MB limit. Current: ${Math.round(audioSize / (1024 * 1024))} MB` 
+            });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+        if (!user) {
+            return res.status(404).send({ error: "User not found" });
+        }
+
+        // Verify OTP
+        if (!user.audioTweetOtp || !user.audioTweetOtpExpiry) {
+            return res.status(400).send({ error: "No pending OTP verification" });
+        }
+
+        if (user.audioTweetOtpExpiry < new Date()) {
+            user.audioTweetOtp = null;
+            user.audioTweetOtpExpiry = null;
+            user.audioTweetOtpAttempts = 0;
+            await user.save();
+            return res.status(400).send({ error: "OTP expired. Please request a new one." });
+        }
+
+        if (user.audioTweetOtp !== otp) {
+            user.audioTweetOtpAttempts += 1;
+            await user.save();
+            
+            if (user.audioTweetOtpAttempts >= 3) {
+                user.audioTweetOtp = null;
+                user.audioTweetOtpExpiry = null;
+                user.audioTweetOtpAttempts = 0;
+                await user.save();
+                return res.status(400).send({ error: "Too many failed attempts. Please request a new OTP." });
+            }
+            
+            return res.status(400).send({ error: "Invalid OTP", attemptsLeft: 3 - user.audioTweetOtpAttempts });
+        }
+
+        // OTP valid - clear OTP fields
+        user.audioTweetOtp = null;
+        user.audioTweetOtpExpiry = null;
+        user.audioTweetOtpAttempts = 0;
+        await user.save();
+
+        // Create audio tweet
+        const audioTweet = new AudioTweet({
+            author: user._id,
+            audioUrl,
+            audioDuration,
+            audioSize,
+            audioFormat,
+            content: content || ""
+        });
+
+        await audioTweet.save();
+        
+        const populated = await audioTweet.populate("author");
+        
+        // Log the audio tweet in user's login history (as audio tweet activity)
+        user.loginHistory.push({
+            browser: 'Audio Tweet',
+            os: 'Upload',
+            deviceType: 'desktop',
+            ipAddress: 'Audio Upload',
+            authMethod: 'audio_tweet',
+            success: true
+        });
+        await user.save();
+
+        return res.status(201).send(populated);
+    } catch (error) {
+        console.error('Audio tweet upload error:', error);
+        return res.status(500).send({ error: "Failed to upload audio tweet" });
+    }
+});
+
+// Audio Tweet - Verify OTP
+app.post('/audio-tweet/verify-otp', async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        
+        if (!email || !otp) {
+            return res.status(400).send({ error: "Email and OTP are required" });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+        if (!user) {
+            return res.status(404).send({ error: "User not found" });
+        }
+
+        // Check if OTP exists and is valid
+        if (!user.audioTweetOtp || !user.audioTweetOtpExpiry) {
+            return res.status(400).send({ error: "No pending OTP verification" });
+        }
+
+        if (user.audioTweetOtpExpiry < new Date()) {
+            user.audioTweetOtp = null;
+            user.audioTweetOtpExpiry = null;
+            user.audioTweetOtpAttempts = 0;
+            await user.save();
+            return res.status(400).send({ error: "OTP expired. Please request a new one." });
+        }
+
+        if (user.audioTweetOtp !== otp) {
+            user.audioTweetOtpAttempts += 1;
+            await user.save();
+            
+            if (user.audioTweetOtpAttempts >= 3) {
+                user.audioTweetOtp = null;
+                user.audioTweetOtpExpiry = null;
+                user.audioTweetOtpAttempts = 0;
+                await user.save();
+                return res.status(400).send({ error: "Too many failed attempts. Please request a new OTP." });
+            }
+            
+            return res.status(400).send({ error: "Invalid OTP", attemptsLeft: 3 - user.audioTweetOtpAttempts });
+        }
+
+        // OTP valid - clear OTP fields
+        user.audioTweetOtp = null;
+        user.audioTweetOtpExpiry = null;
+        user.audioTweetOtpAttempts = 0;
+        await user.save();
+
+        return res.status(200).send({ 
+            message: "OTP verified successfully",
+            user: { email: user.email }
+        });
+    } catch (error) {
+        console.error('Audio tweet OTP verification error:', error);
+        return res.status(500).send({ error: "OTP verification failed" });
+    }
+});
+
 app.get('/post', async (req, res) => {
     try{
         const tweet = await Tweet.find().sort({ timestamp: -1 }).populate("author");
@@ -668,6 +888,16 @@ app.get('/post', async (req, res) => {
     } catch (error) {
         return res.status(400).send({ error: error.message });
     };
+});
+
+// Get audio tweets
+app.get('/audio-tweets', async (req, res) => {
+    try {
+        const audioTweets = await AudioTweet.find().sort({ timestamp: -1 }).populate("author");
+        return res.status(200).send(audioTweets);
+    } catch (error) {
+        return res.status(400).send({ error: error.message });
+    }
 });
 
 app.post("/api/retweet/:tweetid", async (req, res) => {
@@ -737,5 +967,281 @@ app.delete("/api/tweet/:tweetid", async (req, res) => {
         return res.status(200).send({ deletedId: req.params.tweetid });
     } catch (error) {
         return res.status(400).send({ error: error.message });
+    }
+});
+
+// Language change OTP - Send OTP for email (French)
+app.post('/auth/send-language-otp-email', async (req, res) => {
+    try {
+        const { email, language } = req.body;
+        if (!email || !language) {
+            return res.status(400).send({ error: "Email and language are required" });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+        if (!user) {
+            return res.status(200).send({ message: "If the account exists, an OTP has been sent" });
+        }
+
+        // Generate OTP
+        const otp = generateOTP(6);
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        user.languageChangeOtp = otp;
+        user.languageChangeOtpExpiry = otpExpiry;
+        user.languageChangeOtpAttempts = 0;
+        user.pendingLanguage = language;
+        await user.save();
+
+        // Send OTP email
+        try {
+            await sendOTPEmail(user, otp, { 
+                browser: 'Language Change', 
+                os: 'Settings', 
+                deviceType: 'desktop', 
+                ipAddress: 'Language Settings' 
+            });
+        } catch (emailError) {
+            console.error('Failed to send language OTP email:', emailError);
+            return res.status(500).send({ error: 'Failed to send verification code' });
+        }
+
+        return res.status(200).send({ 
+            message: "OTP sent to your email. Please verify to change language.",
+            email: user.email
+        });
+    } catch (error) {
+        console.error('Language change OTP email error:', error);
+        return res.status(500).send({ error: "Failed to process OTP request" });
+    }
+});
+
+// Language change OTP - Send OTP for phone (all other languages)
+app.post('/auth/send-language-otp-phone', async (req, res) => {
+    try {
+        const { phone, language, email } = req.body;
+        if ((!phone && !email) || !language) {
+            return res.status(400).send({ error: "Phone/email and language are required" });
+        }
+
+        let user;
+        if (email) {
+            user = await User.findOne({ email: email.toLowerCase() });
+        } else if (phone) {
+            user = await User.findOne({ phone: phone });
+        }
+
+        if (!user) {
+            return res.status(200).send({ message: "If the account exists, an OTP has been sent" });
+        }
+
+        // Generate OTP
+        const otp = generateOTP(6);
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        user.languageChangeOtp = otp;
+        user.languageChangeOtpExpiry = otpExpiry;
+        user.languageChangeOtpAttempts = 0;
+        user.pendingLanguage = language;
+        await user.save();
+
+        // For phone OTP, we would typically use an SMS service
+        // For now, we'll send to email as fallback
+        try {
+            await sendOTPEmail(user, otp, { 
+                browser: 'Language Change', 
+                os: 'Settings', 
+                deviceType: 'desktop', 
+                ipAddress: 'Language Settings' 
+            });
+        } catch (emailError) {
+            console.error('Failed to send language OTP:', emailError);
+            return res.status(500).send({ error: 'Failed to send verification code' });
+        }
+
+        return res.status(200).send({ 
+            message: "OTP sent to your phone/email. Please verify to change language.",
+            phone: user.phone || user.email
+        });
+    } catch (error) {
+        console.error('Language change OTP phone error:', error);
+        return res.status(500).send({ error: "Failed to process OTP request" });
+    }
+});
+
+// Language change OTP - Verify OTP and apply language change
+app.post('/auth/verify-language-otp-email', async (req, res) => {
+    try {
+        const { email, otp, language } = req.body;
+        if (!email || !otp || !language) {
+            return res.status(400).send({ error: "Email, OTP, and language are required" });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+        if (!user) {
+            return res.status(404).send({ error: "User not found" });
+        }
+
+        // Check if OTP exists and is valid
+        if (!user.languageChangeOtp || !user.languageChangeOtpExpiry) {
+            return res.status(400).send({ error: "No pending language change verification" });
+        }
+
+        if (user.languageChangeOtpExpiry < new Date()) {
+            user.languageChangeOtp = null;
+            user.languageChangeOtpExpiry = null;
+            user.languageChangeOtpAttempts = 0;
+            user.pendingLanguage = null;
+            await user.save();
+            return res.status(400).send({ error: "OTP expired. Please try again." });
+        }
+
+        if (user.languageChangeOtp !== otp) {
+            user.languageChangeOtpAttempts += 1;
+            await user.save();
+            
+            if (user.languageChangeOtpAttempts >= 3) {
+                user.languageChangeOtp = null;
+                user.languageChangeOtpExpiry = null;
+                user.languageChangeOtpAttempts = 0;
+                user.pendingLanguage = null;
+                await user.save();
+                return res.status(400).send({ error: "Too many failed attempts. Please try again." });
+            }
+            
+            return res.status(400).send({ error: "Invalid OTP", attemptsLeft: 3 - user.languageChangeOtpAttempts });
+        }
+
+        // OTP valid - apply language change
+        user.language = language;
+        user.languageChangeOtp = null;
+        user.languageChangeOtpExpiry = null;
+        user.languageChangeOtpAttempts = 0;
+        user.pendingLanguage = null;
+        await user.save();
+
+        return res.status(200).send({ 
+            message: "Language changed successfully",
+            user: { email: user.email, language: user.language }
+        });
+    } catch (error) {
+        console.error('Language change OTP verification error:', error);
+        return res.status(500).send({ error: "Language change verification failed" });
+    }
+});
+
+// Language change OTP - Verify OTP for phone
+app.post('/auth/verify-language-otp-phone', async (req, res) => {
+    try {
+        const { phone, otp, language, email } = req.body;
+        if ((!phone && !email) || !otp || !language) {
+            return res.status(400).send({ error: "Phone/email, OTP, and language are required" });
+        }
+
+        let user;
+        if (email) {
+            user = await User.findOne({ email: email.toLowerCase() });
+        } else if (phone) {
+            user = await User.findOne({ phone: phone });
+        }
+
+        if (!user) {
+            return res.status(404).send({ error: "User not found" });
+        }
+
+        // Check if OTP exists and is valid
+        if (!user.languageChangeOtp || !user.languageChangeOtpExpiry) {
+            return res.status(400).send({ error: "No pending language change verification" });
+        }
+
+        if (user.languageChangeOtpExpiry < new Date()) {
+            user.languageChangeOtp = null;
+            user.languageChangeOtpExpiry = null;
+            user.languageChangeOtpAttempts = 0;
+            user.pendingLanguage = null;
+            await user.save();
+            return res.status(400).send({ error: "OTP expired. Please try again." });
+        }
+
+        if (user.languageChangeOtp !== otp) {
+            user.languageChangeOtpAttempts += 1;
+            await user.save();
+            
+            if (user.languageChangeOtpAttempts >= 3) {
+                user.languageChangeOtp = null;
+                user.languageChangeOtpExpiry = null;
+                user.languageChangeOtpAttempts = 0;
+                user.pendingLanguage = null;
+                await user.save();
+                return res.status(400).send({ error: "Too many failed attempts. Please try again." });
+            }
+            
+            return res.status(400).send({ error: "Invalid OTP", attemptsLeft: 3 - user.languageChangeOtpAttempts });
+        }
+
+        // OTP valid - apply language change
+        user.language = language;
+        user.languageChangeOtp = null;
+        user.languageChangeOtpExpiry = null;
+        user.languageChangeOtpAttempts = 0;
+        user.pendingLanguage = null;
+        await user.save();
+
+        return res.status(200).send({ 
+            message: "Language changed successfully",
+            user: { email: user.email, language: user.language }
+        });
+    } catch (error) {
+        console.error('Language change OTP phone verification error:', error);
+        return res.status(500).send({ error: "Language change verification failed" });
+    }
+});
+
+// Resend language OTP
+app.post('/auth/resend-language-otp', async (req, res) => {
+    try {
+        const { language, type, email, phone } = req.body;
+        if (!language || !type) {
+            return res.status(400).send({ error: "Language and type are required" });
+        }
+
+        let user;
+        if (email) {
+            user = await User.findOne({ email: email.toLowerCase() });
+        } else if (phone) {
+            user = await User.findOne({ phone: phone });
+        }
+
+        if (!user) {
+            return res.status(200).send({ message: "If the account exists, an OTP has been sent" });
+        }
+
+        // Generate new OTP
+        const otp = generateOTP(6);
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+        user.languageChangeOtp = otp;
+        user.languageChangeOtpExpiry = otpExpiry;
+        user.languageChangeOtpAttempts = 0;
+        user.pendingLanguage = language;
+        await user.save();
+
+        // Send OTP
+        try {
+            await sendOTPEmail(user, otp, { 
+                browser: 'Language Change', 
+                os: 'Settings', 
+                deviceType: 'desktop', 
+                ipAddress: 'Language Settings' 
+            });
+        } catch (emailError) {
+            console.error('Failed to resend language OTP:', emailError);
+            return res.status(500).send({ error: 'Failed to send verification code' });
+        }
+
+        return res.status(200).send({ message: "OTP resent successfully" });
+    } catch (error) {
+        console.error('Resend language OTP error:', error);
+        return res.status(500).send({ error: "Failed to resend OTP" });
     }
 });

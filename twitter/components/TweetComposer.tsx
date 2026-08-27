@@ -5,10 +5,12 @@ import { Card, CardContent } from "./ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
-import { Image, Smile, Calendar, MapPin, BarChart3, Globe, AlertCircle, ArrowUpRight, X } from "lucide-react";
+import { Image, Smile, Calendar, MapPin, BarChart3, Globe, AlertCircle, ArrowUpRight, X, Mic, MicOff } from "lucide-react";
 import { Separator } from "./ui/separator";
 import axios from "axios";
 import axiosInstance from "@/Lib/axiosInstance";
+import AudioRecorder from "./AudioRecorder";
+import AudioTweetOTPModal from "./AudioTweetOTPModal";
 
 interface Tweet {
   _id: string;
@@ -28,6 +30,10 @@ interface Tweet {
   likedBy: string[];
   retweetedBy: string[];
   image?: string;
+  audioUrl?: string;
+  audioDuration?: number;
+  audioFormat?: string;
+  isAudioTweet?: boolean;
 }
 
 interface TweetComposerProps {
@@ -41,12 +47,57 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [imageurl, setimageurl] = useState("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  // Audio tweet state
+  const [audioData, setAudioData] = useState<{ url: string; duration: number; size: number; format: string } | null>(null);
+  const [showAudioRecorder, setShowAudioRecorder] = useState(false);
+  const [showAudioOTP, setShowAudioOTP] = useState(false);
+  const [audioOTPEmail, setAudioOTPEmail] = useState('');
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const maxLength = 200;
   const remainingTweets = getRemainingTweets();
   const canPost = canPostTweet();
+
+  const handleAudioReady = (url: string, duration: number, size: number, format: string) => {
+    setAudioData({ url, duration, size, format });
+    setShowAudioRecorder(false);
+    // Request OTP for audio tweet
+    setAudioOTPEmail(user?.email || '');
+    setShowAudioOTP(true);
+  };
+
+  const handleAudioOTPSuccess = async () => {
+    if (!audioData || !user) return;
+    setIsUploadingAudio(true);
+    try {
+      const tweetdata = {
+        author: user._id,
+        content: content || "Audio Tweet",
+        audioUrl: audioData.url,
+        audioDuration: audioData.duration,
+        audioSize: audioData.size,
+        audioFormat: audioData.format,
+        isAudioTweet: true
+      };
+      const res = await axiosInstance.post('/tweet', tweetdata);
+      onTweetPosted(res.data);
+      
+      await axiosInstance.patch('/subscription/increment-tweet', { email: user.email });
+      await fetchSubscription();
+      
+      setContent("");
+      setAudioData(null);
+      setAudioOTPEmail('');
+      setShowAudioOTP(false);
+    } catch (error) {
+      console.error('Failed to post audio tweet:', error);
+    } finally {
+      setIsUploadingAudio(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !content.trim()) return;
+    if (!user || (!content.trim() && !audioData)) return;
     
     if (!canPost) {
       setShowUpgradeModal(true);
@@ -54,10 +105,17 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
     }
     
     try {
-      const tweetdata = {
+      const tweetdata: any = {
         author: user?._id,
         content,
         image: imageurl
+      }
+      if (audioData) {
+        tweetdata.audioUrl = audioData.url;
+        tweetdata.audioDuration = audioData.duration;
+        tweetdata.audioSize = audioData.size;
+        tweetdata.audioFormat = audioData.format;
+        tweetdata.isAudioTweet = true;
       }
       const res = await axiosInstance.post('/tweet', tweetdata)
       onTweetPosted(res.data)
@@ -67,6 +125,7 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
       
       setContent("")
       setimageurl("")
+      setAudioData(null)
     } catch (error) {
       console.log(error)
     } finally {
@@ -161,6 +220,16 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
                   >
                     <MapPin className="h-5 w-5" />
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`p-2 rounded-full hover:bg-purple-900/20 text-purple-400 ${showAudioRecorder ? 'bg-purple-900/30' : ''}`}
+                    onClick={() => setShowAudioRecorder(!showAudioRecorder)}
+                    disabled={isLoading}
+                    title="Add audio tweet"
+                  >
+                    <Mic className="h-5 w-5" />
+                  </Button>
                 </div>
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2">
@@ -249,7 +318,7 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
             </form>
             
             {showUpgradeModal && (
-              <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 mt-4">
+              <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4" style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0}}>
                 <Card className="w-full max-w-md bg-black border-gray-800 text-white">
                   <CardContent className="p-6 space-y-4">
                     <div className="flex justify-between items-center">
@@ -271,6 +340,33 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
                     </Button>
                   </CardContent>
                 </Card>
+              </div>
+            )}
+            
+            {showAudioRecorder && (
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60" style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0}}>
+                <div className="w-full max-w-lg">
+                  <AudioRecorder
+                    onAudioReady={handleAudioReady}
+                    onClose={() => setShowAudioRecorder(false)}
+                    maxDuration={300}
+                    maxSize={100 * 1024 * 1024}
+                  />
+                </div>
+              </div>
+            )}
+            
+            {showAudioOTP && audioOTPEmail && (
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60" style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0}}>
+                <AudioTweetOTPModal
+                  isOpen={showAudioOTP}
+                  onClose={() => {
+                    setShowAudioOTP(false);
+                    setAudioOTPEmail('');
+                  }}
+                  onSuccess={handleAudioOTPSuccess}
+                  email={audioOTPEmail}
+                />
               </div>
             )}
           </div>
