@@ -9,7 +9,7 @@ import { getAuth } from "firebase-admin/auth";
 import User from "./modals/user.js"
 import Tweet from "./modals/tweet.js"
 import AudioTweet from "./modals/audioTweet.js"
-import { SUBSCRIPTION_PLANS, PLAN_LIMITS, PAYMENT_WINDOW, getPlanLimit, isWithinPaymentWindow, getPaymentWindowStatus, canUserTweet } from "./config/subscriptionPlans.js"
+import { SUBSCRIPTION_PLANS, PLAN_LIMITS, getPlanLimit, canUserTweet } from "./config/subscriptionPlans.js"
 import { sendInvoiceEmail, sendPaymentConfirmationEmail, sendPasswordResetEmail, sendOTPEmail, sendAudioTweetOTPEmail } from "./services/emailService.js"
 import { parseUserAgent, getClientIp, isMicrosoftBrowser, isChromeBrowser, isMobileDevice, isWithinMobileLoginWindow, generateOTP, getTimeWindowStatus, isWithinAudioTweetWindow, getAudioTweetWindowStatus } from "./utils/deviceDetector.js"
 import crypto from "crypto";
@@ -129,17 +129,17 @@ const checkTweetLimit = async (req, res, next) => {
     }
 };
 
-// Middleware to check payment window
-const checkPaymentWindow = (req, res, next) => {
-    const windowStatus = getPaymentWindowStatus();
-    if (!windowStatus.isOpen) {
-        return res.status(403).send({ 
-            error: "Payments are only allowed between 10:00 AM - 11:00 AM IST",
-            paymentWindow: windowStatus
-        });
-    }
-    next();
-};
+// Middleware to check payment window (COMMENTED OUT)
+// const checkPaymentWindow = (req, res, next) => {
+//     const windowStatus = getPaymentWindowStatus();
+//     if (!windowStatus.isOpen) {
+//         return res.status(403).send({ 
+//             error: "Payments are only allowed between 10:00 AM - 11:00 AM IST",
+//             paymentWindow: windowStatus
+//         });
+//     }
+//     next();
+// };
 
 app.post('/register', async (req, res) => {
     try{
@@ -547,7 +547,7 @@ app.get('/subscription/plans', (req, res) => {
         ...plan,
         tweetLimit: plan.tweetLimit === -1 ? 'Unlimited' : plan.tweetLimit,
     }));
-    res.status(200).send({ plans, paymentWindow: getPaymentWindowStatus() });
+    res.status(200).send({ plans /*, paymentWindow: getPaymentWindowStatus() */ });
 });
 
 // Get user's current subscription status
@@ -573,15 +573,15 @@ app.get('/subscription/status', async (req, res) => {
             tweetsRemaining: tweetCheck.remaining,
             subscriptionExpiry: user.subscriptionExpiry,
             canTweet: tweetCheck.canTweet,
-            paymentWindow: getPaymentWindowStatus(),
+            // paymentWindow: getPaymentWindowStatus(),
         });
     } catch (error) {
         return res.status(500).send({ error: error.message });
     }
 });
 
-// Create Stripe checkout session
-app.post('/subscription/create-checkout', checkPaymentWindow, async (req, res) => {
+// Create Stripe checkout session (payment window check commented out)
+app.post('/subscription/create-checkout', /* checkPaymentWindow, */ async (req, res) => {
     try {
         const { email, planId } = req.body;
         
@@ -643,7 +643,7 @@ app.post('/subscription/create-checkout', checkPaymentWindow, async (req, res) =
         res.status(200).send({ 
             sessionId: session.id, 
             url: session.url,
-            paymentWindow: getPaymentWindowStatus(),
+            // paymentWindow: getPaymentWindowStatus(),
         });
     } catch (error) {
         console.error('Checkout session error:', error);
@@ -723,10 +723,10 @@ app.post('/subscription/webhook', express.raw({ type: 'application/json' }), asy
     }
 });
 
-// Get payment window status
-app.get('/subscription/payment-window', (req, res) => {
-    res.status(200).send(getPaymentWindowStatus());
-});
+// Get payment window status (COMMENTED OUT)
+// app.get('/subscription/payment-window', (req, res) => {
+//     res.status(200).send(getPaymentWindowStatus());
+// });
 
 app.post('/tweet', checkTweetLimit, async (req, res) => {
     try{

@@ -91,7 +91,16 @@ export default function AudioRecorder({
                 
                 const tempAudio = new Audio(url);
                 tempAudio.onloadedmetadata = () => {
-                    setDuration(Math.round(tempAudio.duration));
+                    if(tempAudio.duration === Infinity || isNaN(tempAudio.duration)) {
+                        tempAudio.currentTime = 1e101;
+                        tempAudio.ontimeupdate = () => {
+                            tempAudio.ontimeupdate = null;
+                            setDuration(Math.round(tempAudio.duration));
+                            tempAudio.currentTime = 0;
+                        };
+                    } else {
+                        setDuration(Math.round(tempAudio.duration));
+                    }
                 };
             };
 
@@ -221,7 +230,18 @@ export default function AudioRecorder({
                     </div>
                 )}
 
-                {!audioBlob && !audioUrl ? (
+                {isRecording ? (
+                    <div className="space-y-4 text-center py-6">
+                        <div className="text-3xl font-mono text-purple-400">{formatTime(recordingTime)}</div>
+                        <button
+                            className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold"
+                            onClick={stopRecording}
+                        >
+                            Stop Recording
+                        </button>
+                    </div>
+                ) :
+                !audioBlob && !audioUrl ? (
                     <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <button
