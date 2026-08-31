@@ -4,6 +4,8 @@ import mongoose from "mongoose"
 import dotenv from "dotenv"
 import dns from "dns"
 import Stripe from "stripe"
+import { initializeApp, getApps, cert, applicationDefault } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import User from "./modals/user.js"
 import Tweet from "./modals/tweet.js"
 import AudioTweet from "./modals/audioTweet.js"
@@ -11,6 +13,39 @@ import { SUBSCRIPTION_PLANS, PLAN_LIMITS, PAYMENT_WINDOW, getPlanLimit, isWithin
 import { sendInvoiceEmail, sendPaymentConfirmationEmail, sendPasswordResetEmail, sendOTPEmail, sendAudioTweetOTPEmail } from "./services/emailService.js"
 import { parseUserAgent, getClientIp, isMicrosoftBrowser, isChromeBrowser, isMobileDevice, isWithinMobileLoginWindow, generateOTP, getTimeWindowStatus, isWithinAudioTweetWindow, getAudioTweetWindowStatus } from "./utils/deviceDetector.js"
 import crypto from "crypto";
+
+let firebaseAuth;
+
+if (getApps().length === 0) {
+  const projectId = process.env.FIREBASE_PROJECT_ID || "twitter-1fc13";
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+  try {
+    if (clientEmail && privateKey) {
+      initializeApp({
+        credential: cert({
+          projectId,
+          clientEmail,
+          privateKey
+        }),
+        projectId
+      });
+    } else {
+      initializeApp({
+        credential: applicationDefault(),
+        projectId
+      });
+    }
+    firebaseAuth = getAuth();
+  } catch (error) {
+    console.warn('Firebase Admin initialization failed:', error.message);
+    console.warn('Password reset via Firebase will not work. Set FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY in .env');
+    firebaseAuth = null;
+  }
+} else {
+  firebaseAuth = getAuth();
+}
 
 const { ObjectId } = mongoose.Types;
 
@@ -171,6 +206,24 @@ app.post('/login', async (req, res) => {
         if (!user) {
             // Log failed attempt
             return res.status(401).send({ error: "Invalid credentials" });
+        }
+
+        // Verify password with Firebase REST API (for fallback login)
+        if (password) {
+            try {
+                const apiKey = process.env.FIREBASE_API_KEY || "AIzaSyB5zx_b8a6s8pLmc6FOECZ0tI_KxF6FN8Q";
+                const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, returnSecureToken: true })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    return res.status(401).send({ error: data.error?.message || "Invalid credentials" });
+                }
+            } catch (err) {
+                return res.status(401).send({ error: "Invalid credentials" });
+            }
         }
 
         // Check mobile time window restriction
@@ -441,9 +494,40 @@ app.post('/reset-password', async (req, res) => {
             return res.status(400).send({ error: "Invalid or expired reset token" });
         }
 
-        // Update password (in real app, you'd hash it)
-        // For Firebase auth, the password is managed by Firebase
-        // Here we just clear the reset token and update lastPasswordReset
+        try {
+            // Try Firebase Admin first
+            if (firebaseAuth) {
+                const firebaseUser = await firebaseAuth.getUserByEmail(user.email);
+                await firebaseAuth.updateUser(firebaseUser.uid, { password });
+            } else {
+                // Fallback to Firebase REST API
+                const apiKey = process.env.FIREBASE_API_KEY || "AIzaSyB5zx_b8a6s8pLmc6FOECZ0tI_KxF6FN8Q";
+                // First sign in to get idToken, then update password
+                const signInResponse = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: user.email, password, returnSecureToken: true })
+                });
+                const signInData = await signInResponse.json();
+                if (!signInResponse.ok) {
+                    throw new Error(signInData.error?.message || 'Failed to verify password');
+                }
+                // Update password using the idToken
+                const updateResponse = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:update?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken: signInData.idToken, password, returnSecureToken: true })
+                });
+                const updateData = await updateResponse.json();
+                if (!updateResponse.ok) {
+                    throw new Error(updateData.error?.message || 'Failed to update password');
+                }
+            }
+        } catch (firebaseError) {
+            console.error('Firebase password update error:', firebaseError);
+            return res.status(500).send({ error: "Failed to update password in authentication system" });
+        }
+
         user.passwordResetToken = null;
         user.passwordResetExpiry = null;
         user.lastPasswordReset = new Date();

@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@base-ui/react/input';
-import { generateSecurePassword } from '@/Lib/passwordGenerator';
 import axiosInstance from '@/Lib/axiosInstance';
 import TwitterLogo from '@/components/Twitterlogo';
 
@@ -21,12 +20,9 @@ export default function ForgotPasswordModal({ isOpen, onClose, onBackToLogin }: 
   const [step, setStep] = useState<'contact' | 'verify' | 'success'>('contact');
   const [contactType, setContactType] = useState<'email' | 'phone'>('email');
   const [contactValue, setContactValue] = useState('');
-  const [generatedPassword, setGeneratedPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
 
@@ -66,32 +62,23 @@ export default function ForgotPasswordModal({ isOpen, onClose, onBackToLogin }: 
         return;
       }
 
-      // Generate a secure password for the user
-      const newPassword = generateSecurePassword(12);
-      setGeneratedPassword(newPassword);
-      setSuccessMessage(response.data.message || 'Password reset instructions sent!');
+      setSuccessMessage(response.data.message || 'Password reset link sent to your email!');
       setStep('verify');
     } catch (err: unknown) {
       const error = err as { response?: { status?: number } };
       if (error.response?.status === 429) {
         setError('You can use this option only one time per day.');
       } else {
-        setError('Failed to send reset instructions. Please try again.');
+        setError('Failed to send reset link. Please try again.');
       }
     } finally {
       setIsLoading(false);
     }
   };
-  const copyPassword = async () => {
-    await navigator.clipboard.writeText(generatedPassword);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const handleBackToLogin = () => {
     setStep('contact');
     setContactValue('');
-    setGeneratedPassword('');
     setError('');
     setSuccessMessage('');
     onBackToLogin();
@@ -120,7 +107,7 @@ export default function ForgotPasswordModal({ isOpen, onClose, onBackToLogin }: 
               {step === 'contact' 
                 ? "Enter your email or phone to receive a password reset link"
                 : step === 'verify'
-                  ? "We've sent a reset link to your email. Your new password is generated below."
+                  ? "We've sent a reset link to your email. Check your inbox."
                   : "Your password has been reset successfully"}
             </p>
           </div>
@@ -198,47 +185,10 @@ export default function ForgotPasswordModal({ isOpen, onClose, onBackToLogin }: 
 
           {step === 'verify' && (
             <div className="space-y-4">
-              <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-white font-medium">Generated Password</Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={copyPassword}
-                    className="text-gray-400 hover:text-white"
-                  >
-                    {copied ? (
-                      <Check className="h-4 w-4 text-green-400" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    value={generatedPassword}
-                    readOnly
-                    className="flex-1 bg-transparent border-gray-600 text-white font-mono text-sm"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="text-gray-400 hover:text-white"
-                  >
-                    {showPassword ? <span className="text-xs">Hide</span> : <span className="text-xs">Show</span>}
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-400 mt-2">
-                  Password contains only letters (uppercase & lowercase). Save it securely!
+              <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-4">
+                <p className="text-blue-300 text-sm">
+                  <strong>Check your email</strong> for the password reset link. Click the link to set a new password.
                 </p>
-              </div>
-
-              <div className="bg-yellow-900/20 border border-yellow-800 rounded-lg p-3 text-yellow-400 text-sm">
-                <strong>Important:</strong> Use this password to sign in, then change it in settings.
               </div>
 
               <Button

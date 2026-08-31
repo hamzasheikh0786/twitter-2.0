@@ -14,7 +14,9 @@ import TwitterLogo from './Twitterlogo';
 import { Input } from '@base-ui/react/input';
 import ForgotPasswordModal from './ForgotPasswordModal';
 import OTPModal from './OTPModal';
-
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/components/context/firebase";
+import axiosInstance from '@/Lib/axiosInstance';
 
 
 interface AuthModalProps {
@@ -24,7 +26,7 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalProps) {
-    const { login, signup } = useAuth();
+    const { login, signup, loginWithBackendUser } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
     const [showPassword, setShowPassword] = useState(false);
@@ -99,37 +101,95 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
             setIsLoading(true);
             setErrors({});
             try {
-                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        email: formData.email, 
-                        password: formData.password 
-                    })
-                });
+                console.log('🔐 Attempting Firebase login for:', formData.email);
+                // Step 1: Try Firebase Auth first
+                try {
+                    const userCred = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+                    console.log('🔐 Firebase login successful:', userCred.user.email);
 
-                const data = await response.json();
-
-                if (!response.ok) {
-                    if (data.blocked && data.reason === 'mobile_time_restriction') {
-                        setErrors({ general: data.error });
-                    } else if (data.requireOTP) {
-                        setOtpEmail(data.email);
-                        setShowOTP(true);
-                    } else {
-                        setErrors({ general: data.error || 'Login failed' });
+                    if (!userCred.user.email) {
+                        setErrors({ general: 'Firebase login failed: No email associated with this account.' });
+                        setIsLoading(false);
+                        return;
                     }
-                    setIsLoading(false);
-                    return;
-                }
+                    
+                    // Fetch user data from backend
+                    const userResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/loggedinuser?email=${encodeURIComponent(userCred.user.email)}`, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' },
+                    });
+                    
+                    const data = await userResponse.json();
+                    console.log('🔐 Backend user response:', userResponse.status, data);
 
-                if (data.user) {
-                    await login(data.user.email, '');
+                    if (!userResponse.ok || !data) {
+                        setErrors({ general: 'User not found in database. Please sign up.' });
+                        setIsLoading(false);
+                        return;
+                    }
+
+                    console.log('🔐 Login successful, setting user:', data);
+                    loginWithBackendUser(data);
+                    setTimeout(() => {
+                        console.log('🔐 Closing modal');
+                        onClose();
+                    }, 100);
+                    setFormData({ email: '', password: '', username: '', displayName: '' });
+                    setErrors({});
+                } catch (firebaseErr: any) {
+                    console.log('🔐 Firebase auth failed:', firebaseErr.code, '- trying backend fallback');
+                    
+                    // Fallback: Try backend login (for users created before Firebase integration)
+                    if (firebaseErr.code === 'auth/user-not-found' || firebaseErr.code === 'auth/wrong-password' || firebaseErr.code === 'auth/invalid-credential') {
+                        console.log('🔐 Attempting backend fallback login...');
+                        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/login`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                email: formData.email, 
+                                password: formData.password 
+                            })
+                        });
+
+                        const data = await response.json();
+                        console.log('🔐 Backend fallback response:', response.status, data);
+
+                        if (!response.ok) {
+                            if (data.blocked && data.reason === 'mobile_time_restriction') {
+                                setErrors({ general: data.error });
+                            } else if (data.requireOTP) {
+                                setOtpEmail(data.email);
+                                setShowOTP(true);
+                            } else {
+                                setErrors({ general: data.error || 'Login failed' });
+                            }
+                            setIsLoading(false);
+                            return;
+                        }
+
+                        if (data.user) {
+                            console.log('🔐 Backend fallback successful, setting user:', data.user);
+                            loginWithBackendUser(data.user);
+                            setTimeout(() => {
+                                console.log('🔐 Closing modal');
+                                onClose();
+                            }, 100);
+                            setFormData({ email: '', password: '', username: '', displayName: '' });
+                            setErrors({});
+                        } else {
+                            console.log('🔐 No user in backend response');
+                            setErrors({ general: 'Invalid credentials' });
+                        }
+                    } else {
+                        // Other Firebase errors (network, too-many-requests, etc.)
+                        let errorMsg = 'Authentication failed. Please try again.';
+                        if (firebaseErr.code === 'auth/too-many-requests') errorMsg = 'Too many failed attempts. Try again later.';
+                        else if (firebaseErr.code === 'auth/network-request-failed') errorMsg = 'Network error. Check your connection.';
+                        setErrors({ general: errorMsg });
+                    }
                 }
-                onClose();
-                setFormData({ email: '', password: '', username: '', displayName: '' });
-                setErrors({});
-            } catch {
+            } catch (err) {
+                console.error('🔐 Login error:', err);
                 setErrors({ general: 'Authentication failed. Please try again.' });
             } finally {
                 setIsLoading(false);
@@ -141,8 +201,12 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                 onClose();
                 setFormData({ email: '', password: '', username: '', displayName: '' });
                 setErrors({});
-            } catch {
-                setErrors({ general: 'Authentication failed. Please try again.' });
+            } catch (err: any) {
+                console.log('🔐 Signup error:', err);
+                const errorMsg = err.message || 'Authentication failed. Please try again.';
+                setErrors({ general: errorMsg });
+            } finally {
+                setIsLoading(false);
             }
         }
     };
