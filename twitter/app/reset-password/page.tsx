@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Input } from '@base-ui/react/input';
 import TwitterLogo from '@/components/Twitterlogo';
 import { generateSecurePassword } from '@/Lib/passwordGenerator';
 import axiosInstance from '@/Lib/axiosInstance';
+import { RefreshCw, Copy, Check, Eye, EyeOff } from 'lucide-react';
 
 function ResetPasswordPageContent() {
   const searchParams = useSearchParams();
@@ -19,11 +20,25 @@ function ResetPasswordPageContent() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState('');
+  const [copied, setCopied] = useState(false);
 
   // Generate password on first render if token exists
-  if (token && !generatedPassword) {
+  useEffect(() => {
+    if (token) {
+      setGeneratedPassword(generateSecurePassword(12));
+    }
+  }, [token]);
+
+  const handleGenerateNewPassword = () => {
     setGeneratedPassword(generateSecurePassword(12));
-  }
+    setCopied(false);
+  };
+
+  const copyPassword = async () => {
+    await navigator.clipboard.writeText(generatedPassword);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,11 +63,6 @@ function ResetPasswordPageContent() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const copyPassword = async () => {
-    await navigator.clipboard.writeText(generatedPassword);
-    alert('Password copied to clipboard!');
   };
 
   if (!token) {
@@ -121,16 +131,32 @@ function ResetPasswordPageContent() {
 
           <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-white font-medium">Generated Password</Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={copyPassword}
-                className="text-gray-400 hover:text-white"
-              >
-                Copy
-              </Button>
+              <Label className="text-white font-medium">Suggested Password</Label>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleGenerateNewPassword}
+                  className="text-gray-400 hover:text-white"
+                  title="Generate new password"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={copyPassword}
+                  className="text-gray-400 hover:text-white"
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4 text-green-400" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Input
@@ -146,11 +172,11 @@ function ResetPasswordPageContent() {
                 onClick={() => setShowPassword(!showPassword)}
                 className="text-gray-400 hover:text-white"
               >
-                {showPassword ? 'Hide' : 'Show'}
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
             </div>
             <p className="text-xs text-gray-400 mt-2">
-              Password contains only letters (uppercase & lowercase). Save it securely!
+              Click copy to use this password, or enter your own below. Click refresh for a new suggestion.
             </p>
           </div>
 
@@ -161,7 +187,7 @@ function ResetPasswordPageContent() {
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter new password (or use generated one)"
+                  placeholder="Enter new password (or paste suggested one)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="bg-transparent border-gray-600 text-white placeholder-gray-400 focus:border-blue-500"

@@ -43,6 +43,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
+  loginWithBackendUser: (userData: User) => void;
   signup: (
     email: string,
     password: string,
@@ -123,6 +124,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsLoading(false);
   };
 
+  const loginWithBackendUser = (userData: User) => {
+    console.log('🔐 loginWithBackendUser called with:', userData);
+    setIsLoading(false);
+    setUser(userData);
+    localStorage.setItem("twitter-user", JSON.stringify(userData));
+    console.log('🔐 User set in context');
+  };
+
   const fetchLoginHistory = async () => {
     if (!user?.email) return;
     try {
@@ -144,25 +153,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     displayName: string
   ) => {
     setIsLoading(true);
-    // Mock authentication - in real app, this would call an API
-    const usercred = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-    const user = usercred.user;
-    const newUser = {
-      username,
-      displayName,
-      avatar: user.photoURL || "https://images.pexels.com/photos/1139743/pexels-photo-1139743.jpeg?auto=compress&cs=tinysrgb&w=400",
-      email: user.email,
-    };
-    const res = await axiosInstance.post("/register", newUser);
-    if (res.data) {
-      setUser(res.data);
-      localStorage.setItem("twitter-user", JSON.stringify(res.data));
+    try {
+      const usercred = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const user = usercred.user;
+      const newUser = {
+        username,
+        displayName,
+        avatar: user.photoURL || "https://images.pexels.com/photos/1139743/pexels-photo-1139743.jpeg?auto=compress&cs=tinysrgb&w=400",
+        email: user.email,
+      };
+      const res = await axiosInstance.post("/register", newUser);
+      if (res.data) {
+        setUser(res.data);
+        localStorage.setItem("twitter-user", JSON.stringify(res.data));
+      }
+    } catch (err: any) {
+      console.log('🔥 RAW FIREBASE ERROR:', err.code, err.message, err);
+      if (err.code === 'auth/email-already-in-use') {
+        throw new Error('Email already in use. Please sign in instead.');
+      }
+      throw err;
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const logout = async () => {
@@ -274,6 +291,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         user,
         login,
+        loginWithBackendUser,
         signup,
         updateProfile,
         updateNotificationPreference,

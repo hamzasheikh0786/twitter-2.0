@@ -16,7 +16,7 @@ export default function LandingPage() {
     setAuthMode(mode);
     setShowAuthModal(true);
   };
-  if (user) {
+  if (user && !showAuthModal) {
     return <Feed/>;
   }
   return (
