@@ -40,7 +40,10 @@
     "yes": "Yes",
     "no": "No",
     "ok": "OK",
-    "done": "Done"
+    "done": "Done",
+    "youMightLike": "You might like",
+    "showMore": "Show more",
+    "adsInfo": "Ads info"
   },
   "auth": {
     "login": "Log in",
@@ -164,7 +167,9 @@
     "manageSubscription": "Manage subscription",
     "billingHistory": "Billing history",
     "paymentMethod": "Payment method",
-    "cancelSubscription": "Cancel subscription"
+    "cancelSubscription": "Cancel subscription",
+    "subscribeToPremium": "Subscribe to Premium",
+    "subscribeDesc": "Get access to exclusive features and content with a Premium subscription."
   },
   "errors": {
     "networkError": "Network error. Please check your connection.",

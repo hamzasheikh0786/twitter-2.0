@@ -39,14 +39,14 @@ export default function Sidebar({ currentPage = 'home', onNavigate }: SidebarPro
   const { language, availableLanguages, t } = useLanguage();
   const currentLang = availableLanguages.find(l => l.code === language);
 
-  const navigation = [
-    { name: 'Home', icon: Home, current: currentPage === 'home', page: 'home' },
-    { name: 'Explore', icon: Search, current: currentPage === 'explore', page: 'explore' },
-    { name: 'Notifications', icon: Bell, current: currentPage === 'notifications', page: 'notifications', badge: true },
-    { name: 'Messages', icon: Mail, current: currentPage === 'messages', page: 'messages' },
-    { name: 'Bookmarks', icon: Bookmark, current: currentPage === 'bookmarks', page: 'bookmarks' },
-    { name: 'Profile', icon: User, current: currentPage === 'profile', page: 'profile' },
-    { name: 'More', icon: MoreHorizontal, current: currentPage === 'more', page: 'more' },
+    const navigation = [
+    { name: t('common.home'), icon: Home, current: currentPage === 'home', page: 'home' },
+    { name: t('common.explore'), icon: Search, current: currentPage === 'explore', page: 'explore' },
+    { name: t('common.notifications'), icon: Bell, current: currentPage === 'notifications', page: 'notifications', badge: true },
+    { name: t('common.messages'), icon: Mail, current: currentPage === 'messages', page: 'messages' },
+    { name: t('common.bookmarks'), icon: Bookmark, current: currentPage === 'bookmarks', page: 'bookmarks' },
+    { name: t('common.profile'), icon: User, current: currentPage === 'profile', page: 'profile' },
+    { name: t('common.more'), icon: MoreHorizontal, current: currentPage === 'more', page: 'more' },
   ];
 
   return (
@@ -80,7 +80,7 @@ export default function Sidebar({ currentPage = 'home', onNavigate }: SidebarPro
         
         <div className="mt-8 px-2">
           <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-full text-lg">
-            Post
+            {t("common.post")}
           </Button>
         </div>
       </nav>
