@@ -100,9 +100,15 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   };
 
-  const upgradePlan = async (plan: SubscriptionPlan) => {
-    const res = await axiosInstance.post("/subscription/create-order", { plan });
-    return res.data;
+    const upgradePlan = async (plan: SubscriptionPlan) => {
+    const res = await fetch("/api/subscription/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw { response: { data } };
+    return data;
   };
 
   const verifyPayment = async (paymentData: {
@@ -111,7 +117,15 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     razorpaySignature: string;
     plan: SubscriptionPlan;
   }) => {
-    await axiosInstance.post("/subscription/verify-payment", paymentData);
+    const res = await fetch("/api/subscription/verify-payment", {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "x-user-email": user?.email || "",
+      },
+      body: JSON.stringify(paymentData),
+    });
+    if (!res.ok) throw new Error("Payment verification failed");
     await fetchSubscription();
   };
 

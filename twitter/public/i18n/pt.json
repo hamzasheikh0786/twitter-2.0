@@ -40,7 +40,10 @@
     "yes": "Sim",
     "no": "Não",
     "ok": "OK",
-    "done": "Concluído"
+    "done": "Concluído",
+    "youMightLike": "Você talvez goste",
+    "showMore": "Mostrar mais",
+    "adsInfo": "Informações sobre anúncios"
   },
   "auth": {
     "login": "Entrar",
@@ -164,7 +167,9 @@
     "manageSubscription": "Gerenciar assinatura",
     "billingHistory": "Histórico de cobrança",
     "paymentMethod": "Método de pagamento",
-    "cancelSubscription": "Cancelar assinatura"
+    "cancelSubscription": "Cancelar assinatura",
+    "subscribeToPremium": "Assinar o Premium",
+    "subscribeDesc": "Assine para desbloquear novos recursos e, se for elegível, receber uma parte das receitas."
   },
   "errors": {
     "networkError": "Erro de rede. Verifique sua conexão.",

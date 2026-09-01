@@ -158,9 +158,9 @@ Thank you for choosing Twitter Clone!
 function getPlanFeatures(plan) {
     const features = {
         free: ['1 tweet per month', 'Basic profile', 'View tweets'],
-        bronze: ['3 tweets per month', 'Basic profile', 'View tweets', 'Priority support'],
-        silver: ['5 tweets per month', 'Enhanced profile', 'View tweets', 'Priority support', 'Analytics'],
-        gold: ['Unlimited tweets', 'Premium profile', 'View tweets', '24/7 Support', 'Advanced Analytics', 'Verified badge'],
+        bronze: ['3 tweets per month', 'Basic profile', 'View tweets', 'No ads'],
+        silver: ['5 tweets per month', 'Enhanced profile', 'View tweets', 'No ads', 'Analytics'],
+        gold: ['Unlimited tweets', 'Premium profile', 'View tweets', 'No ads', 'Analytics', 'Priority support'],
     };
     return features[plan] || features.free;
 }

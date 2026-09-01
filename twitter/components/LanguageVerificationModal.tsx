@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Mail, Smartphone, Loader2, AlertCircle, CheckCircle, X } from "lucide-react";
+import axiosInstance from "@/Lib/axiosInstance";
 
 export default function LanguageVerificationModal() {
   const { 
@@ -90,10 +91,9 @@ export default function LanguageVerificationModal() {
     
     try {
       // Call resend OTP endpoint
-      await fetch(`/api/auth/resend-language-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language: pendingLanguage, type: verificationType })
+        await axiosInstance.post("/auth/resend-language-otp", {
+        language: pendingLanguage,
+        type: verificationType,
       });
       setResendCooldown(60);
     } catch (err) {

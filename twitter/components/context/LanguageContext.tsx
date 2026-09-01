@@ -51,7 +51,7 @@ export const useLanguage = () => {
 
 const loadTranslations = async (lang: Language): Promise<Translations> => {
   try {
-    const response = await fetch(`/i18n/${lang}.json`);
+    const response = await fetch(`/i18n/${lang}.json?v=${Date.now()}`);
     if (response.ok) {
       return await response.json();
     }
@@ -109,18 +109,26 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [user?.language]);
 
   const changeLanguage = useCallback(async (newLang: Language) => {
-    if (newLang === language) return;
+    if (newLang === language || !user) return;
 
-    if (newLang === "fr") {
-      setVerificationType("email");
+    const type: "email" | "phone" = newLang === "fr" ? "email" : "phone";
+    const endpoint = type === "email"
+      ? "/auth/send-language-otp-email"
+      : "/auth/send-language-otp-phone";
+
+    try {
+      await axiosInstance.post(endpoint, {
+        email: user.email,
+        phone: user.phone,
+        language: newLang,
+      });
+      setVerificationType(type);
       setPendingLanguage(newLang);
       setShowLanguageVerification(true);
-    } else {
-      setVerificationType("phone");
-      setPendingLanguage(newLang);
-      setShowLanguageVerification(true);
+    } catch (error) {
+      console.error("Failed to send language OTP:", error);
     }
-  }, [language]);
+  }, [language, user]);
 
   const verifyOtp = useCallback(async (otp: string) => {
     if (!pendingLanguage || !verificationType || !user) return;

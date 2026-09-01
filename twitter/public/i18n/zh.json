@@ -40,7 +40,10 @@
     "yes": "是",
     "no": "否",
     "ok": "确定",
-    "done": "完成"
+    "done": "完成",
+    "youMightLike": "你可能喜欢",
+    "showMore": "显示更多",
+    "adsInfo": "广告信息"
   },
   "auth": {
     "login": "登录",
@@ -164,7 +167,9 @@
     "manageSubscription": "管理订阅",
     "billingHistory": "账单历史",
     "paymentMethod": "支付方式",
-    "cancelSubscription": "取消订阅"
+    "cancelSubscription": "取消订阅",
+    "subscribeToPremium": "订阅高级版",
+    "subscribeDesc": "订阅以解锁新功能，如果符合条件，还可以获得收入分成。"
   },
   "errors": {
     "networkError": "网络错误，请检查连接。",

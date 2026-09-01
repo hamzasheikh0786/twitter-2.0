@@ -8,6 +8,7 @@ import { Button } from '../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useAuth } from '@/components/context/AuthContext';
 import SubscriptionPage from '@/components/SubscriptionPage';
+import { useLanguage } from '@/components/context/LanguageContext';
 
 
 const suggestions = [
@@ -36,6 +37,7 @@ const suggestions = [
 
 export default function RightSidebar() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [showSubscription, setShowSubscription] = useState(false);
   return (
     <div className="w-full p-4 space-y-4">
@@ -43,7 +45,7 @@ export default function RightSidebar() {
       <div className="relative">
         <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
         <Input
-          placeholder="Search"
+          placeholder={t("common.search")}
           className="pl-12 bg-gray-900 border-gray-800 text-white placeholder-gray-400 rounded-full py-3"
         />
       </div>
@@ -51,12 +53,12 @@ export default function RightSidebar() {
       
       <Card className="bg-gray-900 border-gray-800">
         <CardContent className="p-4">
-          <h3 className="text-white text-xl font-bold mb-2">Subscribe to Premium</h3>
+          <h3 className="text-white text-xl font-bold mb-2">{t('subscription.subscribeToPremium')}</h3>
           <p className="text-gray-400 text-sm mb-4">
-            Subscribe to unlock new features and if eligible, receive a share of revenue.
+            {t('subscription.subscribeDesc')}
           </p>
           <Button className="bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-full w-full" onClick={() => setShowSubscription(true)}>
-            Subscribe
+            {t('subscription.subscribe')}
           </Button>
         </CardContent>
       </Card>
@@ -71,7 +73,7 @@ export default function RightSidebar() {
 
       <Card className="bg-gray-900 border-gray-800">
         <CardContent className="p-4">
-          <h3 className="text-white text-xl font-bold mb-4">You might like</h3>
+          <h3 className="text-white text-xl font-bold mb-4">{t('common.youMightLike')}</h3>
           <div className="space-y-4">
             {suggestions.map((user) => (
               <div key={user.id} className="flex items-center justify-between">
@@ -98,24 +100,24 @@ export default function RightSidebar() {
                   variant="outline"
                   className="bg-white text-black hover:bg-gray-200 font-semibold rounded-full px-4"
                 >
-                  Follow
+                  {t('common.follow')}
                 </Button>
               </div>
             ))}
           </div>
           <Button variant="ghost" className="text-blue-400 hover:text-blue-300 p-0 mt-4">
-            Show more
+            {t('common.showMore')}
           </Button>
         </CardContent>
       </Card>
 
       <div className="p-4 text-xs text-gray-500 space-y-2">
         <div className="flex flex-wrap gap-x-3 gap-y-1">
-          <a href="#" className="hover:underline">Terms of Service</a>
-          <a href="#" className="hover:underline">Privacy Policy</a>
-          <a href="#" className="hover:underline">Cookie Policy</a>
-          <a href="#" className="hover:underline">Accessibility</a>
-          <a href="#" className="hover:underline">Ads info</a>
+          <a href="#" className="hover:underline">{t('auth.termsOfService')}</a>
+          <a href="#" className="hover:underline">{t('auth.privacyPolicy')}</a>
+          <a href="#" className="hover:underline">{t('auth.cookiePolicy')}</a>
+          <a href="#" className="hover:underline">{t('settings.accessibility')}</a>
+          <a href="#" className="hover:underline">{t('common.adsInfo')}</a>
         </div>
         <div>© 2024 X Corp.</div>
       </div>
