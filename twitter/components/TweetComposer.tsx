@@ -53,51 +53,41 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
   const [showAudioOTP, setShowAudioOTP] = useState(false);
   const [audioOTPEmail, setAudioOTPEmail] = useState('');
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
+  const [isAudioVerified, setIsAudioVerified] = useState(false);
+  const [audioPostError, setAudioPostError] = useState('');
   const maxLength = 200;
   const remainingTweets = getRemainingTweets();
   const canPost = canPostTweet();
 
-  const handleAudioReady = (url: string, duration: number, size: number, format: string) => {
+const handleAudioReady = async (url: string, duration: number, size: number, format: string) => {
     setAudioData({ url, duration, size, format });
+    setIsAudioVerified(false);
     setShowAudioRecorder(false);
-    // Request OTP for audio tweet
-    setAudioOTPEmail(user?.email || '');
-    setShowAudioOTP(true);
-  };
-
-  const handleAudioOTPSuccess = async () => {
-    if (!audioData || !user) return;
-    setIsUploadingAudio(true);
+    if (!user?.email) return;
     try {
-      const tweetdata = {
-        author: user._id,
-        content: content || "Audio Tweet",
-        audioUrl: audioData.url,
-        audioDuration: audioData.duration,
-        audioSize: audioData.size,
-        audioFormat: audioData.format,
-        isAudioTweet: true
-      };
-      const res = await axiosInstance.post('/tweet', tweetdata);
-      onTweetPosted(res.data);
-      
-      await axiosInstance.patch('/subscription/increment-tweet', { email: user.email });
-      await fetchSubscription();
-      
-      setContent("");
+      await axiosInstance.post('/audio-tweet/request-otp', { email: user.email });
+      setAudioOTPEmail(user.email);
+      setShowAudioOTP(true);
+    } catch (error: any) {
+      console.error('Failed to send audio tweet OTP:', error);
       setAudioData(null);
-      setAudioOTPEmail('');
-      setShowAudioOTP(false);
-    } catch (error) {
-      console.error('Failed to post audio tweet:', error);
-    } finally {
-      setIsUploadingAudio(false);
+      setAudioPostError(
+        error?.response?.data?.error || 'Failed to send verification code. Please try again.'
+      );
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleAudioVerified = () => {
+    setIsAudioVerified(true);
+    setTimeout(() => {
+      setAudioOTPEmail('');
+      setShowAudioOTP(false);
+    }, 1200);
+};
+
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || (!content.trim() && !audioData)) return;
+    if (!user || (!content.trim() && !(audioData && isAudioVerified))) return;
     
     if (!canPost) {
       setShowUpgradeModal(true);
@@ -107,25 +97,26 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
     try {
       const tweetdata: any = {
         author: user?._id,
-        content,
+        content: content.trim() || "Audio Tweet",
         image: imageurl
       }
-      if (audioData) {
+      if (audioData && isAudioVerified) {
         tweetdata.audioUrl = audioData.url;
         tweetdata.audioDuration = audioData.duration;
         tweetdata.audioSize = audioData.size;
         tweetdata.audioFormat = audioData.format;
         tweetdata.isAudioTweet = true;
       }
+
       const res = await axiosInstance.post('/tweet', tweetdata)
       onTweetPosted(res.data)
       
-      await axiosInstance.patch('/subscription/increment-tweet', { email: user.email });
       await fetchSubscription();
       
       setContent("")
       setimageurl("")
       setAudioData(null)
+      setIsAudioVerified(false)
     } catch (error) {
       console.log(error)
     } finally {
@@ -169,12 +160,25 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
 
           <div className="flex-1">
             <form onSubmit={handleSubmit}>
-              <Textarea
+                            <Textarea
                 placeholder="What's happening?"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 className="bg-transparent border-none text-xl text-white placeholder-gray-500 resize-none min-h-[120px] focus-visible:ring-0 focus-visible:ring-offset-0"
               />
+
+              {audioData && isAudioVerified && (
+                <div className="mb-2 flex items-center justify-between bg-purple-900/20 border border-purple-800 rounded-lg px-3 py-2 text-sm text-purple-300">
+                  <span>🎤 Voice recording attached ({audioData.duration}s) — ready to post</span>
+                  <button
+                    type="button"
+                    onClick={() => { setAudioData(null); setIsAudioVerified(false); }}
+                    className="text-purple-400 hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
 
               <div className="flex items-center justify-between mt-4">
                 <div className="flex items-center space-x-4 text-blue-400">
@@ -193,6 +197,7 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
                     />
                   </label>
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
                     className="p-2 rounded-full hover:bg-blue-900/20"
@@ -200,6 +205,7 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
                     <BarChart3 className="h-5 w-5" />
                   </Button>
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
                     className="p-2 rounded-full hover:bg-blue-900/20"
@@ -207,6 +213,7 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
                     <Smile className="h-5 w-5" />
                   </Button>
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
                     className="p-2 rounded-full hover:bg-blue-900/20"
@@ -214,6 +221,7 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
                     <Calendar className="h-5 w-5" />
                   </Button>
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
                     className="p-2 rounded-full hover:bg-blue-900/20"
@@ -221,10 +229,17 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
                     <MapPin className="h-5 w-5" />
                   </Button>
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
                     className={`p-2 rounded-full hover:bg-purple-900/20 text-purple-400 ${showAudioRecorder ? 'bg-purple-900/30' : ''}`}
-                    onClick={() => setShowAudioRecorder(!showAudioRecorder)}
+                    onClick={() => {
+                      if (!canPost) {
+                        setShowUpgradeModal(true);
+                        return;
+                      }
+                      setShowAudioRecorder(!showAudioRecorder);
+                    }}
                     disabled={isLoading}
                     title="Add audio tweet"
                   >
@@ -238,7 +253,7 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
                       Everyone can reply
                     </span>
                   </div>
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-3 flex-wrap">
                     {characterCount > 0 && (
                       <div className="flex items-center space-x-2">
                         <div className="relative w-8 h-8">
@@ -307,8 +322,8 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
 
                     <Button
                       type="submit"
-                      disabled={!content.trim() || isOverLimit || isLoading || !canPost}
-                      className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-700 disabled:text-gray-500 text-white font-semibold rounded-full px-6"
+                      disabled={!content.trim() && !(audioData && isAudioVerified) || isOverLimit || isLoading || !canPost}
+                      className={`bg-blue-500 hover:bg-blue-600 disabled:bg-gray-700 disabled:text-gray-500 text-white font-semibold rounded-full whitespace-nowrap flex shrink-0 px-4 text-sm`}
                     >
                       {canPost ? 'Post' : 'Upgrade to Post'}
                     </Button>
@@ -342,6 +357,15 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
                 </Card>
               </div>
             )}
+
+            {audioPostError && (
+              <div className="mt-3 p-3 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm flex items-center justify-between">
+                <span>{audioPostError}</span>
+                <button onClick={() => setAudioPostError('')}>
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             
             {showAudioRecorder && (
               <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60" style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0}}>
@@ -363,8 +387,11 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
                   onClose={() => {
                     setShowAudioOTP(false);
                     setAudioOTPEmail('');
+                    if (!isAudioVerified) {
+                      setAudioData(null);
+                    }
                   }}
-                  onSuccess={handleAudioOTPSuccess}
+                  onSuccess={handleAudioVerified}
                   email={audioOTPEmail}
                 />
               </div>

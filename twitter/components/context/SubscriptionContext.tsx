@@ -5,6 +5,13 @@ import axiosInstance from "@/Lib/axiosInstance";
 
 export type SubscriptionPlan = "free" | "bronze" | "silver" | "gold";
 
+export const PLAN_HIERARCHY: Record<SubscriptionPlan, number> = {
+  free: 0,
+  bronze: 1,
+  silver: 2,
+  gold: 3,
+};
+
 export interface SubscriptionPlanDetails {
   name: string;
   price: number;

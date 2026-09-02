@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/components/context/AuthContext";
-import { useSubscription, SUBSCRIPTION_PLANS, SubscriptionPlan } from "@/components/context/SubscriptionContext";
+import { useSubscription, SUBSCRIPTION_PLANS, SubscriptionPlan, PLAN_HIERARCHY } from "@/components/context/SubscriptionContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, X, Lock, CreditCard, Clock, Info, AlertCircle } from "lucide-react";
@@ -71,6 +71,16 @@ const SubscriptionPage = ({ onClose, user: userProp }: SubscriptionPageProps) =>
   const currentPlan = subscription?.plan || "free";
   const planDetails = SUBSCRIPTION_PLANS[currentPlan];
 
+  const playWindowClosedAudio = () => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      const utterance = new SpeechSynthesisUtterance("Payment window is closed. Please try again between 10 and 11 AM IST.");
+      utterance.lang = "en-US";
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   const handleUpgrade = async (plan: SubscriptionPlan) => {
     if (plan === "free") return;
     
@@ -131,6 +141,7 @@ const SubscriptionPage = ({ onClose, user: userProp }: SubscriptionPageProps) =>
       const err = error as { response?: { data?: { error?: string } } };
       if (err.response?.data?.error?.includes("10:00 AM and 11:00 AM")) {
         setShowPaymentWindowInfo(true);
+        playWindowClosedAudio();
       } else {
         setPaymentError(err.response?.data?.error || "Failed to initiate payment");
       }
@@ -144,7 +155,7 @@ const SubscriptionPage = ({ onClose, user: userProp }: SubscriptionPageProps) =>
     const istTime = new Date(now.getTime() + istOffset);
     const hours = istTime.getUTCHours();
     const minutes = istTime.getUTCMinutes();
-    return hours === 10 && minutes >= 0 && minutes < 60;
+    return hours === 10 && minutes < 60;
   };
 
   const paymentWindowOpen = isPaymentWindowOpen();
@@ -199,7 +210,7 @@ const SubscriptionPage = ({ onClose, user: userProp }: SubscriptionPageProps) =>
           <p className="text-gray-400">Choose a plan that fits your tweeting needs</p>
         </div>
       )}
-      <div className="p-4 max-h-[70vh] overflow-y-auto">
+      <div className="p-4 pt-8 max-h-[70vh] overflow-y-auto">
 
         {showPaymentWindowInfo && (
           <div className="mb-6 p-4 bg-yellow-900/20 border border-yellow-800 rounded-lg flex items-start space-x-3">
@@ -227,25 +238,23 @@ const SubscriptionPage = ({ onClose, user: userProp }: SubscriptionPageProps) =>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 items-stretch mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 items-stretch mt-2">
           {plans.map(({ key: planKey, popular }) => {
             const plan = SUBSCRIPTION_PLANS[planKey];
             const isCurrentPlan = currentPlan === planKey;
+            const isLowerPlan = PLAN_HIERARCHY[planKey] < PLAN_HIERARCHY[currentPlan];
+            const isHigherPlan = PLAN_HIERARCHY[planKey] > PLAN_HIERARCHY[currentPlan];
 
             return (
               <Card
                 key={planKey}
                 className={`bg-gray-900 border-gray-800 transition-all h-full flex flex-col ${
                   isCurrentPlan ? "border-blue-500 ring-2 ring-blue-500/20" : "hover:border-gray-700"
-                } ${popular ? "relative" : ""}`}
+                } ${popular ? "relative" : ""} ${isLowerPlan ? "opacity-50" : ""}`}
               >
-                {popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                    <span className="bg-blue-500 text-white text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
+                
+                  
+                
                 <CardHeader className="text-center pb-6 pt-6">
                   <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
                   <div className="mt-3">
@@ -259,6 +268,11 @@ const SubscriptionPage = ({ onClose, user: userProp }: SubscriptionPageProps) =>
                   {isCurrentPlan && (
                     <span className="inline-block mt-3 px-3 py-1 bg-blue-500/20 text-blue-400 text-sm font-medium rounded-full">
                       Current Plan
+                    </span>
+                  )}
+                  {isLowerPlan && (
+                    <span className="inline-block mt-3 px-3 py-1 bg-gray-700 text-gray-400 text-sm font-medium rounded-full">
+                      Already Subscribed
                     </span>
                   )}
                 </CardHeader>
@@ -280,13 +294,15 @@ const SubscriptionPage = ({ onClose, user: userProp }: SubscriptionPageProps) =>
                   
                   <Button
                     className="w-full px-4 py-2.5 text-xs text-center whitespace-normal leading snug"
-                    disabled={isCurrentPlan || isProcessing}
+                    disabled={isCurrentPlan || isProcessing || isLowerPlan}
                     onClick={() => handleUpgrade(planKey)}
-                    variant={isCurrentPlan ? "outline" : "default"}
-                    style={{ backgroundColor: !isCurrentPlan ? "#1da1f2" : undefined }}
+                    variant={isCurrentPlan || isLowerPlan ? "outline" : "default"}
+                    style={{ backgroundColor: !isCurrentPlan && !isLowerPlan ? "#1da1f2" : undefined }}
                   >
                     {isCurrentPlan 
                       ? "Current Plan" 
+                      : isLowerPlan
+                      ? "Plan Included"
                       : isProcessing && selectedPlan === planKey
                       ? "Processing..."
                       : plan.price === 0
