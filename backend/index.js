@@ -13,6 +13,27 @@ import { SUBSCRIPTION_PLANS, PLAN_LIMITS, getPlanLimit, canUserTweet, getPayment
 import { sendInvoiceEmail, sendPaymentConfirmationEmail, sendPasswordResetEmail, sendOTPEmail, sendAudioTweetOTPEmail } from "./services/emailService.js"
 import { parseUserAgent, getClientIp, isMicrosoftBrowser, isChromeBrowser, isMobileDevice, isWithinMobileLoginWindow, generateOTP, getTimeWindowStatus, isWithinAudioTweetWindow, getAudioTweetWindowStatus } from "./utils/deviceDetector.js"
 import crypto from "crypto";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const audioUploadDir = path.join(__dirname, "uploads", "audio");
+if (!fs.existsSync(audioUploadDir)) {
+    fs.mkdirSync(audioUploadDir, { recursive: true });
+}
+
+const audioStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, audioUploadDir),
+    filename: (req, file, cb) => {
+        const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        cb(null, unique + path.extname(file.originalname || ".webm"));
+    },
+});
+const uploadAudio = multer({ storage: audioStorage, limits: { fileSize: 100 * 1024 * 1024 } });
 
 let firebaseAuth;
 
@@ -55,6 +76,9 @@ dotenv.config()
 const app=express()
 app.use(cors())
 app.use(express.json())
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+
 
 // Ensure UTF-8 charset for all responses
 app.use((req, res, next) => {
@@ -837,6 +861,19 @@ app.post('/audio-tweet/request-otp', async (req, res) => {
     } catch (error) {
         console.error('Audio tweet OTP request error:', error);
         return res.status(500).send({ error: "Failed to process OTP request" });
+    }
+});
+
+app.post('/audio-tweet/upload-file', uploadAudio.single('audio'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).send({ error: "No audio file received" });
+        }
+        const fileUrl = `${req.protocol}://${req.get('host')}/uploads/audio/${req.file.filename}`;
+        return res.status(200).send({ url: fileUrl });
+    } catch (error) {
+        console.error('Audio file upload error:', error);
+        return res.status(500).send({ error: "Failed to upload audio file" });
     }
 });
 

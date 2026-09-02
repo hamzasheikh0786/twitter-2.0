@@ -188,15 +188,27 @@ export default function AudioRecorder({
         setIsUploading(true);
         
         try {
-            // In a real app, you'd upload to a storage service
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            const formData = new FormData();
+            formData.append('audio', audioBlob, `recording-${Date.now()}.webm`);
+
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/audio-tweet/upload-file`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Upload failed');
+            }
+
+            const data = await response.json();
             
-            onAudioReady(audioUrl, duration, audioBlob.size, 'webm');
+            onAudioReady(data.url, duration, audioBlob.size, 'webm');
             setTimeout(() => {
                 onClose();
             }, 500);
         } catch (err) {
             console.error('Failed to upload audio:', err);
+            setError('Failed to upload audio. Please try again.');
         } finally {
             setIsUploading(false);
         }
