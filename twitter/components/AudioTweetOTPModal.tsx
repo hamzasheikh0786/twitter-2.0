@@ -58,7 +58,7 @@ export default function AudioTweetOTPModal({
         }
 
         if (newOtp.every(v => v !== '')) {
-            handleVerify();
+            handleVerify(newOtp.join(''));
         }
     };
 
@@ -75,11 +75,11 @@ export default function AudioTweetOTPModal({
         while (newOtp.length < 6) newOtp.push('');
         setOtp(newOtp);
         newOtp.forEach((v, i) => { if (v) inputsRef.current[i]?.focus(); });
-        if (newOtp[5]) handleVerify();
+        if (newOtp[5]) handleVerify(newOtp.join(''));
     };
 
-    const handleVerify = async () => {
-        const code = otp.join('');
+    const handleVerify = async (codeOverride?: string) => {
+        const code = codeOverride ?? otp.join('');
         if (code.length !== 6 || isLoading) return;
 
         setIsLoading(true);
@@ -103,10 +103,6 @@ export default function AudioTweetOTPModal({
 
             setSuccess(true);
             onSuccess();
-            setTimeout(() => {
-                onClose();
-                setSuccess(false);
-            }, 1500);
         } catch (err: unknown) {
             const error = err as { message?: string };
             setError(error.message || 'Verification failed. Please try again.');

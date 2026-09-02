@@ -39,6 +39,23 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    
+const order = await razorpay.orders.fetch(razorpayOrderId);
+const orderPlan = order.notes?.plan;
+
+if (!orderPlan || orderPlan !== plan) {
+  return NextResponse.json(
+    { error: "Plan mismatch between order and verification request" },
+    { status: 400 }
+  );
+}
+
+if (payment.amount !== PLAN_PRICES[plan] * 100) {
+  return NextResponse.json(
+    { error: "Payment amount does not match plan price" },
+    { status: 400 }
+  );
+}
 
     const userEmail = req.headers.get("x-user-email");
     if (!userEmail) {

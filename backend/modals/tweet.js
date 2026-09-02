@@ -7,7 +7,12 @@ const TweetSchema = new mongoose.Schema({
     comments: { type:Number, default: 0 },
     likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     retweetedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    images: { type: String, default: null },
+    image: { type: String, default: null },
+    audioUrl: { type: String, default: null },
+    audioDuration: { type: Number, default: null },
+    audioSize: { type: Number, default: null },
+    audioFormat: { type: String, default: null },
+    isAudioTweet: { type: Boolean, default: false },
     timestamp: { type: Date, default: Date.now },
 });
 

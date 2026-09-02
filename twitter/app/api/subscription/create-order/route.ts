@@ -19,7 +19,7 @@ function isPaymentWindowOpen(): boolean {
   const istTime = new Date(now.getTime() + istOffset);
   const hours = istTime.getUTCHours();
   const minutes = istTime.getUTCMinutes();
-  return hours === 10 && minutes >= 0 && minutes < 60;
+  return hours === 10 && minutes < 60;
 }
 
 export async function POST(req: NextRequest) {
