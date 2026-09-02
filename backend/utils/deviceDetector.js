@@ -5,7 +5,6 @@ export function parseUserAgent(userAgent) {
 
     const ua = userAgent.toLowerCase();
 
-    // Browser detection
     let browser = 'Unknown';
     if (ua.includes('edg/') || ua.includes('edge/')) {
         browser = 'Microsoft Edge';
@@ -23,7 +22,6 @@ export function parseUserAgent(userAgent) {
         browser = 'Internet Explorer';
     }
 
-    // OS detection
     let os = 'Unknown';
     if (ua.includes('windows nt 10.0') || ua.includes('windows nt 11.0')) {
         os = 'Windows 10/11';
@@ -45,22 +43,20 @@ export function parseUserAgent(userAgent) {
         os = 'Ubuntu';
     }
 
-    // Device type detection
     let deviceType = 'desktop';
     if (ua.includes('mobile') || ua.includes('android') && !ua.includes('tablet') || ua.includes('iphone') || ua.includes('ipod')) {
         deviceType = 'mobile';
     } else if (ua.includes('tablet') || ua.includes('ipad') || (ua.includes('android') && !ua.includes('mobile'))) {
-        deviceType = 'laptop'; // Treating tablets as laptop category
+        deviceType = 'laptop';
     }
 
     return { browser, os, deviceType };
 }
 
 export function getClientIp(req) {
-    // Check various headers for real IP
     const forwarded = req.headers['x-forwarded-for'];
     const realIp = req.headers['x-real-ip'];
-    const cfConnectingIp = req.headers['cf-connecting-ip']; // Cloudflare
+    const cfConnectingIp = req.headers['cf-connecting-ip'];
 
     if (cfConnectingIp) return cfConnectingIp.split(',')[0].trim();
     if (realIp) return realIp.split(',')[0].trim();
@@ -87,9 +83,8 @@ export function isWithinMobileLoginWindow() {
     const minutes = now.getMinutes();
     const currentMinutes = hours * 60 + minutes;
 
-    // 10:00 AM = 600 minutes, 1:00 PM = 780 minutes
-    const windowStart = 10 * 60; // 600
-    const windowEnd = 13 * 60;   // 780
+    const windowStart = 10 * 60;
+    const windowEnd = 13 * 60;
 
     return currentMinutes >= windowStart && currentMinutes < windowEnd;
 }
@@ -138,16 +133,14 @@ export function getTimeWindowStatus() {
     };
 }
 
-// Audio tweet time window: 2:00 PM - 7:00 PM IST
 export function isWithinAudioTweetWindow() {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
     const currentMinutes = hours * 60 + minutes;
 
-    // 2:00 PM = 840 minutes, 7:00 PM = 1140 minutes
-    const windowStart = 14 * 60; // 840
-    const windowEnd = 19 * 60;   // 1140
+    const windowStart = 14 * 60;
+    const windowEnd = 19 * 60;
 
     return currentMinutes >= windowStart && currentMinutes < windowEnd;
 }
@@ -158,8 +151,8 @@ export function getAudioTweetWindowStatus() {
     const minutes = now.getMinutes();
     const currentMinutes = hours * 60 + minutes;
 
-    const windowStart = 14 * 60; // 2:00 PM
-    const windowEnd = 19 * 60;   // 7:00 PM
+    const windowStart = 14 * 60;
+    const windowEnd = 19 * 60;
 
     const isOpen = currentMinutes >= windowStart && currentMinutes < windowEnd;
 

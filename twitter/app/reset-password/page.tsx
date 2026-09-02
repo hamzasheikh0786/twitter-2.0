@@ -22,7 +22,6 @@ function ResetPasswordPageContent() {
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // Generate password on first render if token exists
   useEffect(() => {
     if (token) {
       setGeneratedPassword(generateSecurePassword(12));

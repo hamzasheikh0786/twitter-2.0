@@ -1,2 +1,11 @@
 node_modules/
 .next/
+.env
+.env.local
+.env*.local
+backend/.env
+node_modules/
+backend/node_modules/
+.next/
+backend/uploads/
+*firebase-adminsdk*.json

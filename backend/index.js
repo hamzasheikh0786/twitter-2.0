@@ -80,7 +80,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 
-// Ensure UTF-8 charset for all responses
 app.use((req, res, next) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   next();
@@ -109,7 +108,6 @@ mongoose
         console.log("error:",err.message)
     })
 
-// Middleware to check tweet limits
 const checkTweetLimit = async (req, res, next) => {
     try {
         const { author } = req.body;
@@ -153,7 +151,6 @@ const checkTweetLimit = async (req, res, next) => {
     }
 };
 
-// Middleware to check payment window 
 const checkPaymentWindow = (req, res, next) => {
     const windowStatus = getPaymentWindowStatus();
     if (!windowStatus.isOpen) {
@@ -206,20 +203,17 @@ app.patch('/userupdate/:email', async (req, res) => {
     }
 })
 
-// Login endpoint with device detection and environment-based auth
 app.post('/login', async (req, res) => {
     try {
         const { email, password, firebaseUid } = req.body;
         const userAgent = req.headers['user-agent'] || '';
         const clientIp = getClientIp(req);
 
-        // Parse device info
         const { browser, os, deviceType } = parseUserAgent(userAgent);
         const isMicrosoft = isMicrosoftBrowser(browser);
         const isChrome = isChromeBrowser(browser);
         const isMobile = isMobileDevice(deviceType);
 
-        // Find user by email or firebaseUid
         let user;
         if (firebaseUid) {
             user = await User.findOne({ email: email.toLowerCase() });
@@ -228,11 +222,9 @@ app.post('/login', async (req, res) => {
         }
 
         if (!user) {
-            // Log failed attempt
             return res.status(401).send({ error: "Invalid credentials" });
         }
 
-        // Verify password with Firebase REST API (for fallback login)
         if (password) {
             try {
                 const apiKey = process.env.FIREBASE_API_KEY || "AIzaSyB5zx_b8a6s8pLmc6FOECZ0tI_KxF6FN8Q";
@@ -250,11 +242,9 @@ app.post('/login', async (req, res) => {
             }
         }
 
-        // Check mobile time window restriction
         if (isMobile && !isWithinMobileLoginWindow()) {
             const windowStatus = getTimeWindowStatus();
             
-            // Log blocked attempt
             user.loginHistory.push({
                 browser,
                 os,
@@ -274,9 +264,7 @@ app.post('/login', async (req, res) => {
             });
         }
 
-        // Microsoft browsers - allow direct login
         if (isMicrosoft) {
-            // Log successful login
             user.loginHistory.push({
                 browser,
                 os,
@@ -294,11 +282,9 @@ app.post('/login', async (req, res) => {
             });
         }
 
-        // Chrome browsers - require OTP
         if (isChrome) {
-            // Generate OTP
             const otp = generateOTP(6);
-            const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+            const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
             user.otp = otp;
             user.otpExpiry = otpExpiry;
@@ -306,7 +292,6 @@ app.post('/login', async (req, res) => {
             user.pendingLogin = { browser, os, deviceType, ipAddress: clientIp, timestamp: new Date() };
             await user.save();
 
-            // Send OTP email
             try {
                 await sendOTPEmail(user, otp, { browser, os, deviceType, ipAddress: clientIp });
             } catch (emailError) {
@@ -321,7 +306,6 @@ app.post('/login', async (req, res) => {
             });
         }
 
-        // Other browsers - direct login
         user.loginHistory.push({
             browser,
             os,
@@ -344,7 +328,6 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// OTP Verification endpoint
 app.post('/verify-otp', async (req, res) => {
     try {
         const { email, otp } = req.body;
@@ -358,7 +341,6 @@ app.post('/verify-otp', async (req, res) => {
             return res.status(404).send({ error: "User not found" });
         }
 
-        // Check if OTP exists and is valid
         if (!user.otp || !user.otpExpiry) {
             return res.status(400).send({ error: "No pending OTP verification" });
         }
@@ -388,7 +370,6 @@ app.post('/verify-otp', async (req, res) => {
             return res.status(400).send({ error: "Invalid OTP", attemptsLeft: 3 - user.otpAttempts });
         }
 
-        // OTP valid - clear OTP fields and log successful login
         const { browser, os, deviceType, ipAddress } = user.pendingLogin || { browser: 'Unknown', os: 'Unknown', deviceType: 'desktop', ipAddress: 'Unknown' };
         
         user.otp = null;
@@ -418,7 +399,6 @@ app.post('/verify-otp', async (req, res) => {
     }
 });
 
-// Get login history for user
 app.get('/login-history', async (req, res) => {
     try {
         const { email } = req.query;
@@ -431,7 +411,6 @@ app.get('/login-history', async (req, res) => {
             return res.status(404).send({ error: "User not found" });
         }
 
-        // Return login history sorted by most recent first
         const history = [...user.loginHistory].sort((a, b) => new Date(b.loginTime) - new Date(a.loginTime));
         return res.status(200).send({ loginHistory: history });
     } catch (error) {
@@ -440,12 +419,10 @@ app.get('/login-history', async (req, res) => {
     }
 });
 
-// Mobile login window status
 app.get('/mobile-login-window', (req, res) => {
     return res.status(200).send(getTimeWindowStatus());
 });
 
-// Forgot Password - Request password reset
 app.post('/forgot-password', async (req, res) => {
     try {
         const { email, phone } = req.body;
@@ -464,13 +441,11 @@ app.post('/forgot-password', async (req, res) => {
 
         if (!user) {
             console.log('👤 User not found for:', email || phone);
-            // Don't reveal if user exists or not for security
             return res.status(200).send({ message: "If the account exists, a password reset link has been sent" });
         }
 
         console.log('👤 User found:', { id: user._id, email: user.email, displayName: user.displayName });
 
-        // Check if user already requested a reset today
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
@@ -480,9 +455,8 @@ app.post('/forgot-password', async (req, res) => {
             return res.status(429).send({ error: "You can use this option only one time per day." });
         }
 
-        // Generate reset token (64 chars hex)
         const resetToken = crypto.randomBytes(32).toString('hex');
-        const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
 
         user.passwordResetToken = resetToken;
         user.passwordResetExpiry = resetTokenExpiry;
@@ -490,7 +464,6 @@ app.post('/forgot-password', async (req, res) => {
 
         console.log('🔑 Reset token generated:', resetToken.substring(0, 8) + '...');
 
-        // Send reset email
         console.log('📧 Sending reset email to:', user.email);
         await sendPasswordResetEmail(user, resetToken);
 
@@ -501,7 +474,6 @@ app.post('/forgot-password', async (req, res) => {
     }
 });
 
-// Reset Password - Validate token and set new password
 app.post('/reset-password', async (req, res) => {
     try {
         const { token, password } = req.body;
@@ -519,14 +491,11 @@ app.post('/reset-password', async (req, res) => {
         }
 
         try {
-            // Try Firebase Admin first
             if (firebaseAuth) {
                 const firebaseUser = await firebaseAuth.getUserByEmail(user.email);
                 await firebaseAuth.updateUser(firebaseUser.uid, { password });
             } else {
-                // Fallback to Firebase REST API
                 const apiKey = process.env.FIREBASE_API_KEY || "AIzaSyB5zx_b8a6s8pLmc6FOECZ0tI_KxF6FN8Q";
-                // First sign in to get idToken, then update password
                 const signInResponse = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -536,7 +505,6 @@ app.post('/reset-password', async (req, res) => {
                 if (!signInResponse.ok) {
                     throw new Error(signInData.error?.message || 'Failed to verify password');
                 }
-                // Update password using the idToken
                 const updateResponse = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:update?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -564,17 +532,15 @@ app.post('/reset-password', async (req, res) => {
     }
 });
 
-// Get subscription plans
 app.get('/subscription/plans', (req, res) => {
     const plans = Object.entries(SUBSCRIPTION_PLANS).map(([key, plan]) => ({
         id: key,
         ...plan,
         tweetLimit: plan.tweetLimit === -1 ? 'Unlimited' : plan.tweetLimit,
     }));
-    res.status(200).send({ plans /*, paymentWindow: getPaymentWindowStatus() */ });
+    res.status(200).send({ plans });
 });
 
-// Get user's current subscription status
 app.get('/subscription/status', async (req, res) => {
     try {
         const { email } = req.query;
@@ -604,8 +570,7 @@ app.get('/subscription/status', async (req, res) => {
     }
 });
 
-// Create Stripe checkout session (payment window check commented out)
-app.post('/subscription/create-checkout',  checkPaymentWindow,  async (req, res) => {
+app.post('/subscription/create-checkout', checkPaymentWindow, async (req, res) => {
     try {
         const { email, planId } = req.body;
         
@@ -675,7 +640,6 @@ app.post('/subscription/create-checkout',  checkPaymentWindow,  async (req, res)
     }
 });
 
-// Stripe webhook handler
 app.post('/subscription/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     const sig = req.headers['stripe-signature'];
     const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -747,12 +711,10 @@ app.post('/subscription/webhook', express.raw({ type: 'application/json' }), asy
     }
 });
 
-// Get payment window status (COMMENTED OUT)
 app.get('/subscription/payment-window', (req, res) => {
     res.status(200).send(getPaymentWindowStatus());
 });
 
-// Activate subscription after Razorpay payment is verified
 app.post('/api/subscription/activate', async (req, res) => {
     try {
         const { email, plan } = req.body;
@@ -775,7 +737,6 @@ app.post('/api/subscription/activate', async (req, res) => {
     }
 });
 
-// Send invoice email after Razorpay payment
 app.post('/api/subscription/send-invoice', async (req, res) => {
     try {
         const { email, plan, razorpayOrderId, razorpayPaymentId, amount } = req.body;
@@ -809,12 +770,10 @@ app.post('/tweet', checkTweetLimit, async (req, res) => {
     }
 })
 
-// Audio Tweet - Check time window
 app.get('/audio-tweet/window', (req, res) => {
     res.status(200).send(getAudioTweetWindowStatus());
 });
 
-// Audio Tweet - Request OTP for audio upload
 app.post('/audio-tweet/request-otp', async (req, res) => {
     try {
         const { email } = req.body;
@@ -822,7 +781,6 @@ app.post('/audio-tweet/request-otp', async (req, res) => {
             return res.status(400).send({ error: "Email is required" });
         }
 
-        // Check audio tweet time window
         if (!isWithinAudioTweetWindow()) {
             const windowStatus = getAudioTweetWindowStatus();
             return res.status(403).send({ 
@@ -837,16 +795,14 @@ app.post('/audio-tweet/request-otp', async (req, res) => {
             return res.status(200).send({ message: "If the account exists, an OTP has been sent" });
         }
 
-        // Generate OTP
         const otp = generateOTP(6);
-        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
         user.audioTweetOtp = otp;
         user.audioTweetOtpExpiry = otpExpiry;
         user.audioTweetOtpAttempts = 0;
         await user.save();
 
-        // Send OTP email
         try {
             await sendAudioTweetOTPEmail(user, otp);
         } catch (emailError) {
@@ -877,7 +833,6 @@ app.post('/audio-tweet/upload-file', uploadAudio.single('audio'), async (req, re
     }
 });
 
-// Audio Tweet - Verify OTP and upload audio
 app.post('/audio-tweet/upload', async (req, res) => {
     try {
         const { email, otp, audioUrl, audioDuration, audioSize, audioFormat, content } = req.body;
@@ -886,7 +841,6 @@ app.post('/audio-tweet/upload', async (req, res) => {
             return res.status(400).send({ error: "Email, OTP, and audio URL are required" });
         }
 
-        // Check audio tweet time window
         if (!isWithinAudioTweetWindow()) {
             const windowStatus = getAudioTweetWindowStatus();
             return res.status(403).send({ 
@@ -896,9 +850,8 @@ app.post('/audio-tweet/upload', async (req, res) => {
             });
         }
 
-        // Validate audio constraints
-        const maxDuration = 5 * 60; // 5 minutes in seconds
-        const maxSize = 100 * 1024 * 1024; // 100 MB in bytes
+        const maxDuration = 5 * 60;
+        const maxSize = 100 * 1024 * 1024;
         
         if (audioDuration > maxDuration) {
             return res.status(400).send({ 
@@ -917,7 +870,6 @@ app.post('/audio-tweet/upload', async (req, res) => {
             return res.status(404).send({ error: "User not found" });
         }
 
-        // Verify OTP
         if (!user.audioTweetOtp || !user.audioTweetOtpExpiry) {
             return res.status(400).send({ error: "No pending OTP verification" });
         }
@@ -945,13 +897,11 @@ app.post('/audio-tweet/upload', async (req, res) => {
             return res.status(400).send({ error: "Invalid OTP", attemptsLeft: 3 - user.audioTweetOtpAttempts });
         }
 
-        // OTP valid - clear OTP fields
         user.audioTweetOtp = null;
         user.audioTweetOtpExpiry = null;
         user.audioTweetOtpAttempts = 0;
         await user.save();
 
-        // Create audio tweet
         const audioTweet = new AudioTweet({
             author: user._id,
             audioUrl,
@@ -965,7 +915,6 @@ app.post('/audio-tweet/upload', async (req, res) => {
         
         const populated = await audioTweet.populate("author");
         
-        // Log the audio tweet in user's login history (as audio tweet activity)
         user.loginHistory.push({
             browser: 'Audio Tweet',
             os: 'Upload',
@@ -983,7 +932,6 @@ app.post('/audio-tweet/upload', async (req, res) => {
     }
 });
 
-// Audio Tweet - Verify OTP
 app.post('/audio-tweet/verify-otp', async (req, res) => {
     try {
         const { email, otp } = req.body;
@@ -997,7 +945,6 @@ app.post('/audio-tweet/verify-otp', async (req, res) => {
             return res.status(404).send({ error: "User not found" });
         }
 
-        // Check if OTP exists and is valid
         if (!user.audioTweetOtp || !user.audioTweetOtpExpiry) {
             return res.status(400).send({ error: "No pending OTP verification" });
         }
@@ -1025,7 +972,6 @@ app.post('/audio-tweet/verify-otp', async (req, res) => {
             return res.status(400).send({ error: "Invalid OTP", attemptsLeft: 3 - user.audioTweetOtpAttempts });
         }
 
-        // OTP valid - clear OTP fields
         user.audioTweetOtp = null;
         user.audioTweetOtpExpiry = null;
         user.audioTweetOtpAttempts = 0;
@@ -1050,7 +996,6 @@ app.get('/post', async (req, res) => {
     };
 });
 
-// Get audio tweets
 app.get('/audio-tweets', async (req, res) => {
     try {
         const audioTweets = await AudioTweet.find().sort({ timestamp: -1 }).populate("author");
@@ -1130,7 +1075,6 @@ app.delete("/api/tweet/:tweetid", async (req, res) => {
     }
 });
 
-// Language change OTP - Send OTP for email (French)
 app.post('/auth/send-language-otp-email', async (req, res) => {
     try {
         const { email, language } = req.body;
@@ -1143,9 +1087,8 @@ app.post('/auth/send-language-otp-email', async (req, res) => {
             return res.status(200).send({ message: "If the account exists, an OTP has been sent" });
         }
 
-        // Generate OTP
         const otp = generateOTP(6);
-        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
         user.languageChangeOtp = otp;
         user.languageChangeOtpExpiry = otpExpiry;
@@ -1153,7 +1096,6 @@ app.post('/auth/send-language-otp-email', async (req, res) => {
         user.pendingLanguage = language;
         await user.save();
 
-        // Send OTP email
         try {
             await sendOTPEmail(user, otp, { 
                 browser: 'Language Change', 
@@ -1176,7 +1118,6 @@ app.post('/auth/send-language-otp-email', async (req, res) => {
     }
 });
 
-// Language change OTP - Send OTP for phone (all other languages)
 app.post('/auth/send-language-otp-phone', async (req, res) => {
     try {
         const { phone, language, email } = req.body;
@@ -1195,9 +1136,8 @@ app.post('/auth/send-language-otp-phone', async (req, res) => {
             return res.status(200).send({ message: "If the account exists, an OTP has been sent" });
         }
 
-        // Generate OTP
         const otp = generateOTP(6);
-        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
         user.languageChangeOtp = otp;
         user.languageChangeOtpExpiry = otpExpiry;
@@ -1205,8 +1145,6 @@ app.post('/auth/send-language-otp-phone', async (req, res) => {
         user.pendingLanguage = language;
         await user.save();
 
-        // For phone OTP, we would typically use an SMS service
-        // For now, we'll send to email as fallback
         try {
             await sendOTPEmail(user, otp, { 
                 browser: 'Language Change', 
@@ -1229,7 +1167,6 @@ app.post('/auth/send-language-otp-phone', async (req, res) => {
     }
 });
 
-// Language change OTP - Verify OTP and apply language change
 app.post('/auth/verify-language-otp-email', async (req, res) => {
     try {
         const { email, otp, language } = req.body;
@@ -1242,7 +1179,6 @@ app.post('/auth/verify-language-otp-email', async (req, res) => {
             return res.status(404).send({ error: "User not found" });
         }
 
-        // Check if OTP exists and is valid
         if (!user.languageChangeOtp || !user.languageChangeOtpExpiry) {
             return res.status(400).send({ error: "No pending language change verification" });
         }
@@ -1272,7 +1208,6 @@ app.post('/auth/verify-language-otp-email', async (req, res) => {
             return res.status(400).send({ error: "Invalid OTP", attemptsLeft: 3 - user.languageChangeOtpAttempts });
         }
 
-        // OTP valid - apply language change
         user.language = language;
         user.languageChangeOtp = null;
         user.languageChangeOtpExpiry = null;
@@ -1290,7 +1225,6 @@ app.post('/auth/verify-language-otp-email', async (req, res) => {
     }
 });
 
-// Language change OTP - Verify OTP for phone
 app.post('/auth/verify-language-otp-phone', async (req, res) => {
     try {
         const { phone, otp, language, email } = req.body;
@@ -1309,7 +1243,6 @@ app.post('/auth/verify-language-otp-phone', async (req, res) => {
             return res.status(404).send({ error: "User not found" });
         }
 
-        // Check if OTP exists and is valid
         if (!user.languageChangeOtp || !user.languageChangeOtpExpiry) {
             return res.status(400).send({ error: "No pending language change verification" });
         }
@@ -1336,10 +1269,9 @@ app.post('/auth/verify-language-otp-phone', async (req, res) => {
                 return res.status(400).send({ error: "Too many failed attempts. Please try again." });
             }
             
-            return res.status(400).send({ error: "Invalid OTP", attemptsLeft: 3 - user.languageChangeOtpAttempts });
+return res.status(400).send({ error: "Invalid OTP", attemptsLeft: 3 - user.languageChangeOtpAttempts });
         }
 
-        // OTP valid - apply language change
         user.language = language;
         user.languageChangeOtp = null;
         user.languageChangeOtpExpiry = null;
@@ -1347,7 +1279,7 @@ app.post('/auth/verify-language-otp-phone', async (req, res) => {
         user.pendingLanguage = null;
         await user.save();
 
-        return res.status(200).send({ 
+        return res.status(200).send({
             message: "Language changed successfully",
             user: { email: user.email, language: user.language }
         });
@@ -1357,7 +1289,6 @@ app.post('/auth/verify-language-otp-phone', async (req, res) => {
     }
 });
 
-// Resend language OTP
 app.post('/auth/resend-language-otp', async (req, res) => {
     try {
         const { language, type, email, phone } = req.body;
@@ -1376,7 +1307,6 @@ app.post('/auth/resend-language-otp', async (req, res) => {
             return res.status(200).send({ message: "If the account exists, an OTP has been sent" });
         }
 
-        // Generate new OTP
         const otp = generateOTP(6);
         const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -1386,7 +1316,6 @@ app.post('/auth/resend-language-otp', async (req, res) => {
         user.pendingLanguage = language;
         await user.save();
 
-        // Send OTP
         try {
             await sendOTPEmail(user, otp, { 
                 browser: 'Language Change', 

@@ -28,14 +28,12 @@ export const useTweetNotifications = (tweets: Tweet[]) => {
   useEffect(() => {
     if (!user?.notificationEnabled || permission !== "granted" || tweets.length === 0) return;
 
-    // Skip notification on initial load
     if (isInitialLoad.current) {
       prevTweetCount.current = tweets.length;
       isInitialLoad.current = false;
       return;
     }
 
-    // Only notify for new tweets (when count increases)
     if (tweets.length > prevTweetCount.current) {
       const newTweets = tweets.slice(0, tweets.length - prevTweetCount.current);
       

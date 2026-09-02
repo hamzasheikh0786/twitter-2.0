@@ -30,13 +30,9 @@ export default function OTPModal({ isOpen, onClose, onSuccess, email }: OTPModal
 
     useEffect(() => {
         if (isOpen) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setOtp(['', '', '', '', '', '']);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setError('');
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSuccess(false);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setAttemptsLeft(3);
             setTimeout(() => inputsRef.current[0]?.focus(), 100);
         }
@@ -62,7 +58,6 @@ export default function OTPModal({ isOpen, onClose, onSuccess, email }: OTPModal
             inputsRef.current[index - 1]?.focus();
         }
 
-        // Auto-submit when all fields filled
         if (newOtp.every(v => v !== '')) {
             handleVerify();
         }

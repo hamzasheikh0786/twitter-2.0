@@ -38,14 +38,12 @@ const Feed = () => {
       const res = await axiosInstance.get("/post");
       setTweets(res.data);
     } catch {
-      // Failed to fetch tweets
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTweets();
   }, [fetchTweets]);
 

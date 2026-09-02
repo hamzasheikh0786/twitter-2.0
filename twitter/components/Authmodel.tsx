@@ -52,7 +52,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     };
 
     const handleOTPSuccess = (user: { email: string }) => {
-        login(user.email, ''); // Password not needed as backend already validated
+        login(user.email, '');
         onClose();
         setFormData({ email: '', password: '', username: '', displayName: '' });
         setErrors({});
@@ -100,10 +100,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
         if (mode === 'login') {
             setIsLoading(true);
             setErrors({});
-            try {
-                console.log('🔐 Attempting Firebase login for:', formData.email);
-                // Step 1: Try Firebase Auth first
-                try {
+try {
                     const userCred = await signInWithEmailAndPassword(auth, formData.email, formData.password);
                     console.log('🔐 Firebase login successful:', userCred.user.email);
 
@@ -113,7 +110,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                         return;
                     }
                     
-                    // Fetch user data from backend
                     const userResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/loggedinuser?email=${encodeURIComponent(userCred.user.email)}`, {
                         method: 'GET',
                         headers: { 'Content-Type': 'application/json' },
@@ -139,7 +135,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                 } catch (firebaseErr: any) {
                     console.log('🔐 Firebase auth failed:', firebaseErr.code, '- trying backend fallback');
                     
-                    // Fallback: Try backend login (for users created before Firebase integration)
                     if (firebaseErr.code === 'auth/user-not-found' || firebaseErr.code === 'auth/wrong-password' || firebaseErr.code === 'auth/invalid-credential') {
                         console.log('🔐 Attempting backend fallback login...');
                         const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/login`, {
@@ -181,7 +176,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                             setErrors({ general: 'Invalid credentials' });
                         }
                     } else {
-                        // Other Firebase errors (network, too-many-requests, etc.)
                         let errorMsg = 'Authentication failed. Please try again.';
                         if (firebaseErr.code === 'auth/too-many-requests') errorMsg = 'Too many failed attempts. Try again later.';
                         else if (firebaseErr.code === 'auth/network-request-failed') errorMsg = 'Network error. Check your connection.';
@@ -195,7 +189,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                 setIsLoading(false);
             }
         } else {
-            // Signup flow remains the same
             try {
                 await signup(formData.email, formData.password, formData.username, formData.displayName);
                 onClose();

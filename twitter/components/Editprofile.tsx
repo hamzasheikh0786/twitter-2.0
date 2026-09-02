@@ -98,7 +98,6 @@ const Editprofile = ({ isopen, onclose }: EditProfileProps) => {
         setFormdata((prev) => ({ ...prev, avatar: url }));
       }
     } catch {
-      // Failed to upload image
     } finally {
       setIsLoading(false);
     }
@@ -146,7 +145,6 @@ const Editprofile = ({ isopen, onclose }: EditProfileProps) => {
           )}
 
           <form id="edit-profile-form" onSubmit={handleSubmit}>
-            {/* Cover Photo */}
             <div className="relative">
               <div className="h-48 bg-gradient-to-r from-blue-600 to-purple-600 relative">
                 <Button

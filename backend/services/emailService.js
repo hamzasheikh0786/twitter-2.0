@@ -1,7 +1,6 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 
-// Load env vars FIRST before reading them
 dotenv.config();
 
 const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
@@ -9,7 +8,6 @@ const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
 const smtpUser = process.env.SMTP_USER;
 let smtpPass = process.env.SMTP_PASS;
 
-// Fix: Remove spaces from password (common .env issue)
 if (smtpPass) {
   smtpPass = smtpPass.replace(/\s+/g, '');
 }
@@ -39,7 +37,6 @@ const transporter = nodemailer.createTransport({
     logger: true,
 });
 
-// Verify transporter on startup
 transporter.verify((error, success) => {
   if (error) {
     console.error('❌ SMTP Transporter verification failed:', error.message);
@@ -344,16 +341,13 @@ export function generateSecurePassword(length = 12) {
     
     let password = '';
     
-    // Ensure at least one uppercase and one lowercase
     password += uppercase[Math.floor(Math.random() * uppercase.length)];
     password += lowercase[Math.floor(Math.random() * lowercase.length)];
     
-    // Fill the rest
     for (let i = 2; i < length; i++) {
         password += allChars[Math.floor(Math.random() * allChars.length)];
     }
     
-    // Shuffle the password
     return password.split('').sort(() => Math.random() - 0.5).join('');
 }
 

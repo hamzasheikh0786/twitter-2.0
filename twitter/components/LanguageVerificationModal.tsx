@@ -90,7 +90,6 @@ export default function LanguageVerificationModal() {
     if (resendCooldown > 0 || !pendingLanguage) return;
     
     try {
-      // Call resend OTP endpoint
         await axiosInstance.post("/auth/resend-language-otp", {
         language: pendingLanguage,
         type: verificationType,

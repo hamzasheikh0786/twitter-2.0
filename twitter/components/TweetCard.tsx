@@ -57,7 +57,6 @@ export default function TweetCard({ tweet, onTweetDeleted }: TweetCardProps) {
       });
       setTweetState(res.data);
     } catch {
-      // Failed to like tweet
     }
   };
 
@@ -68,7 +67,6 @@ export default function TweetCard({ tweet, onTweetDeleted }: TweetCardProps) {
       });
       setTweetState(res.data);
     } catch {
-      // Failed to retweet
     }
   };
 
@@ -79,7 +77,6 @@ export default function TweetCard({ tweet, onTweetDeleted }: TweetCardProps) {
       });
       onTweetDeleted?.(tweetId);
     } catch {
-      // Failed to delete tweet
     }
   };
 

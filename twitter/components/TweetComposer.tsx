@@ -47,7 +47,6 @@ const TweetComposer = ({ onTweetPosted }: TweetComposerProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [imageurl, setimageurl] = useState("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  // Audio tweet state
   const [audioData, setAudioData] = useState<{ url: string; duration: number; size: number; format: string } | null>(null);
   const [showAudioRecorder, setShowAudioRecorder] = useState(false);
   const [showAudioOTP, setShowAudioOTP] = useState(false);
