@@ -52,7 +52,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     };
 
     const handleOTPSuccess = (user: { email: string }) => {
-        login(user.email, '');
+        login(user.email, ''); 
         onClose();
         setFormData({ email: '', password: '', username: '', displayName: '' });
         setErrors({});
@@ -100,7 +100,9 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
         if (mode === 'login') {
             setIsLoading(true);
             setErrors({});
-try {
+            try {
+                console.log('🔐 Attempting Firebase login for:', formData.email);
+                try {
                     const userCred = await signInWithEmailAndPassword(auth, formData.email, formData.password);
                     console.log('🔐 Firebase login successful:', userCred.user.email);
 
@@ -109,12 +111,12 @@ try {
                         setIsLoading(false);
                         return;
                     }
-                    
+
                     const userResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/loggedinuser?email=${encodeURIComponent(userCred.user.email)}`, {
                         method: 'GET',
                         headers: { 'Content-Type': 'application/json' },
                     });
-                    
+
                     const data = await userResponse.json();
                     console.log('🔐 Backend user response:', userResponse.status, data);
 
@@ -134,7 +136,7 @@ try {
                     setErrors({});
                 } catch (firebaseErr: any) {
                     console.log('🔐 Firebase auth failed:', firebaseErr.code, '- trying backend fallback');
-                    
+
                     if (firebaseErr.code === 'auth/user-not-found' || firebaseErr.code === 'auth/wrong-password' || firebaseErr.code === 'auth/invalid-credential') {
                         console.log('🔐 Attempting backend fallback login...');
                         const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/login`, {
@@ -176,7 +178,8 @@ try {
                             setErrors({ general: 'Invalid credentials' });
                         }
                     } else {
-                        let errorMsg = 'Authentication failed. Please try again.';
+
+                      let errorMsg = 'Authentication failed. Please try again.';
                         if (firebaseErr.code === 'auth/too-many-requests') errorMsg = 'Too many failed attempts. Try again later.';
                         else if (firebaseErr.code === 'auth/network-request-failed') errorMsg = 'Network error. Check your connection.';
                         setErrors({ general: errorMsg });
@@ -189,7 +192,8 @@ try {
                 setIsLoading(false);
             }
         } else {
-            try {
+
+          try {
                 await signup(formData.email, formData.password, formData.username, formData.displayName);
                 onClose();
                 setFormData({ email: '', password: '', username: '', displayName: '' });
