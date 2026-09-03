@@ -76,9 +76,13 @@ export function isChromeBrowser(browser) {
 export function isMobileDevice(deviceType) {
     return deviceType === 'mobile';
 }
+function getISTTime() {
+    const now = new Date();
+    return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+}
 
 export function isWithinMobileLoginWindow() {
-    const now = new Date();
+    const now = getISTTime();
     const hours = now.getHours();
     const minutes = now.getMinutes();
     const currentMinutes = hours * 60 + minutes;
@@ -99,7 +103,7 @@ export function generateOTP(length = 6) {
 }
 
 export function getTimeWindowStatus() {
-    const now = new Date();
+    const now = getISTTime();
     const hours = now.getHours();
     const minutes = now.getMinutes();
     const currentMinutes = hours * 60 + minutes;
@@ -134,7 +138,7 @@ export function getTimeWindowStatus() {
 }
 
 export function isWithinAudioTweetWindow() {
-    const now = new Date();
+    const now = getISTTime();
     const hours = now.getHours();
     const minutes = now.getMinutes();
     const currentMinutes = hours * 60 + minutes;
@@ -146,7 +150,7 @@ export function isWithinAudioTweetWindow() {
 }
 
 export function getAudioTweetWindowStatus() {
-    const now = new Date();
+    const now = getISTTime();
     const hours = now.getHours();
     const minutes = now.getMinutes();
     const currentMinutes = hours * 60 + minutes;
