@@ -1,51 +1,38 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
-const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
-const smtpUser = process.env.SMTP_USER;
-let smtpPass = process.env.SMTP_PASS;
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = new Resend(resendApiKey);
 
-if (smtpPass) {
-  smtpPass = smtpPass.replace(/\s+/g, '');
-}
+const FROM_EMAIL = 'Twitter Clone <onboarding@resend.dev>';
 
 console.log('📧 Email Service Config:', {
-  host: smtpHost,
-  port: smtpPort,
-  user: smtpUser ? `${smtpUser.substring(0, 3)}***` : 'NOT SET',
-  pass: smtpPass ? 'SET' : 'NOT SET',
-  passLength: smtpPass ? smtpPass.length : 0,
+  provider: 'Resend',
+  apiKey: resendApiKey ? 'SET' : 'NOT SET',
 });
 
-if (!smtpUser || !smtpPass || smtpUser.includes('your') || smtpPass.includes('your')) {
-  console.warn('⚠️  SMTP credentials not configured! Using placeholder values. Emails will NOT be sent.');
-  console.warn('   Update backend/.env with real SMTP credentials.');
+if (!resendApiKey) {
+  console.warn('⚠️  RESEND_API_KEY not set! Emails will NOT be sent.');
 }
 
-const transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure: smtpPort === 465,
-    family: 4,
-    auth: smtpUser && smtpPass ? {
-        user: smtpUser,
-        pass: smtpPass,
-    } : undefined,
-    debug: true,
-    logger: true,
-});
-
-transporter.verify((error, success) => {
-  if (error) {
-    console.error('❌ SMTP Transporter verification failed:', error.message);
-    console.error('   Check your SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in backend/.env');
-  } else {
-    console.log('✅ SMTP Transporter ready - emails can be sent');
-  }
-});
+async function sendEmail({ to, subject, text, html }) {
+    if (!resendApiKey) {
+        throw new Error('RESEND_API_KEY not configured. Please add it to backend/.env');
+    }
+    const { data, error } = await resend.emails.send({
+        from: FROM_EMAIL,
+        to,
+        subject,
+        text,
+        html,
+    });
+    if (error) {
+        throw new Error(error.message || 'Resend send failed');
+    }
+    return data;
+}
 
 export async function sendInvoiceEmail(user, plan, paymentDetails) {
     const planConfig = {
@@ -139,8 +126,7 @@ Thank you for choosing Twitter Clone!
     `;
 
     try {
-        await transporter.sendMail({
-            from: `"Twitter Clone" <${process.env.SMTP_USER}>`,
+        await sendEmail({
             to: user.email,
             subject: `Invoice #${invoiceNumber} - ${planInfo.name} Plan Subscription`,
             text,
@@ -224,8 +210,7 @@ export async function sendPaymentConfirmationEmail(user, plan, paymentId) {
     `;
 
     try {
-        await transporter.sendMail({
-            from: `"Twitter Clone" <${process.env.SMTP_USER}>`,
+        await sendEmail({
             to: user.email,
             subject: `Payment Confirmed - ${planInfo.name} Plan Activated`,
             html,
@@ -310,27 +295,17 @@ Thank you for choosing Twitter Clone!
     `;
 
     try {
-        if (!smtpUser || !smtpPass || smtpUser.includes('your') || smtpPass.includes('your')) {
-            throw new Error('SMTP credentials not configured. Please update backend/.env with real SMTP credentials.');
-        }
-        
-        const info = await transporter.sendMail({
-            from: `"Twitter Clone" <${smtpUser}>`,
+        const data = await sendEmail({
             to: user.email,
             subject: `Password Reset Request - Twitter Clone`,
             text,
             html,
         });
         console.log(`✅ Password reset email sent to ${user.email}`);
-        console.log(`📧 Message ID: ${info.messageId}`);
-        console.log(`📧 Preview URL: ${nodemailer.getTestMessageUrl(info)}`);
+        console.log(`📧 Email ID: ${data?.id}`);
     } catch (error) {
         console.error('❌ Failed to send password reset email:');
         console.error('   Error:', error.message);
-        console.error('   Code:', error.code);
-        console.error('   Command:', error.command);
-        console.error('   Response:', error.response);
-        console.error('   Response Code:', error.responseCode);
         throw error;
     }
 }
@@ -445,19 +420,14 @@ Thank you for choosing Twitter Clone!
     `;
 
     try {
-        if (!smtpUser || !smtpPass || smtpUser.includes('your') || smtpPass.includes('your')) {
-            throw new Error('SMTP credentials not configured');
-        }
-        
-        const info = await transporter.sendMail({
-            from: `"Twitter Clone" <${smtpUser}>`,
+        const data = await sendEmail({
             to: user.email,
             subject: `Login Verification Code - Twitter Clone`,
             text,
             html,
         });
         console.log(`✅ OTP email sent to ${user.email}`);
-        console.log(`📧 Message ID: ${info.messageId}`);
+        console.log(`📧 Email ID: ${data?.id}`);
     } catch (error) {
         console.error('❌ Failed to send OTP email:');
         console.error('   Error:', error.message);
@@ -541,19 +511,14 @@ Thank you for choosing Twitter Clone!
     `;
 
     try {
-        if (!smtpUser || !smtpPass || smtpUser.includes('your') || smtpPass.includes('your')) {
-            throw new Error('SMTP credentials not configured');
-        }
-        
-        const info = await transporter.sendMail({
-            from: `"Twitter Clone" <${smtpUser}>`,
+        const data = await sendEmail({
             to: user.email,
             subject: `Audio Tweet Verification Code - Twitter Clone`,
             text,
             html,
         });
         console.log(`✅ Audio tweet OTP email sent to ${user.email}`);
-        console.log(`📧 Message ID: ${info.messageId}`);
+        console.log(`📧 Email ID: ${data?.id}`);
     } catch (error) {
         console.error('❌ Failed to send audio tweet OTP email:');
         console.error('   Error:', error.message);
