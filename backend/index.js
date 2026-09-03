@@ -14,25 +14,24 @@ import { sendInvoiceEmail, sendPaymentConfirmationEmail, sendPasswordResetEmail,
 import { parseUserAgent, getClientIp, isMicrosoftBrowser, isChromeBrowser, isMobileDevice, isWithinMobileLoginWindow, generateOTP, getTimeWindowStatus, isWithinAudioTweetWindow, getAudioTweetWindowStatus } from "./utils/deviceDetector.js"
 import crypto from "crypto";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-const audioUploadDir = path.join(__dirname, "uploads", "audio");
-if (!fs.existsSync(audioUploadDir)) {
-    fs.mkdirSync(audioUploadDir, { recursive: true });
-}
-
-const audioStorage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, audioUploadDir),
-    filename: (req, file, cb) => {
-        const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
-        cb(null, unique + path.extname(file.originalname || ".webm"));
+const audioStorage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: "audio-tweets",
+        resource_type: "video", // Cloudinary stores audio under the 'video' resource type
+        allowed_formats: ["webm", "mp3", "wav", "m4a", "ogg"],
     },
 });
+
 const uploadAudio = multer({ storage: audioStorage, limits: { fileSize: 100 * 1024 * 1024 } });
 
 let firebaseAuth;
@@ -76,9 +75,6 @@ dotenv.config()
 const app=express()
 app.use(cors())
 app.use(express.json())
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-
 
 app.use((req, res, next) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -825,8 +821,7 @@ app.post('/audio-tweet/upload-file', uploadAudio.single('audio'), async (req, re
         if (!req.file) {
             return res.status(400).send({ error: "No audio file received" });
         }
-        const fileUrl = `${req.protocol}://${req.get('host')}/uploads/audio/${req.file.filename}`;
-        return res.status(200).send({ url: fileUrl });
+        return res.status(200).send({ url: req.file.path });
     } catch (error) {
         console.error('Audio file upload error:', error);
         return res.status(500).send({ error: "Failed to upload audio file" });
